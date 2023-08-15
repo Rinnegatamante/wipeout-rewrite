@@ -1,0 +1,65 @@
+TARGET := Wipeout
+
+LIBS	:= -lSDL2 -lvitaGL -lvitashark -lmathneon -lSceShaccCgExt -lSceShaccCg_stub -ltaihen_stub \
+	-lpthread -lSceAudio_stub -lSceAudioIn_stub -lSceHid_stub -lz -lScePower_stub -lSceAppUtil_stub \
+	-lSceAppMgr_stub -lSceCommonDialog_stub -lSceCtrl_stub -lSceGxm_stub -lSceMotion_stub -lSceNet_stub \
+	-lSceTouch_stub -lSceSysmodule_stub -lSceKernelDmacMgr_stub -lSceDisplay_stub -lSceIme_stub
+
+SRC = \
+	src/wipeout/race.c \
+	src/wipeout/camera.c \
+	src/wipeout/object.c \
+	src/wipeout/droid.c \
+	src/wipeout/ui.c \
+	src/wipeout/hud.c \
+	src/wipeout/image.c \
+	src/wipeout/game.c \
+	src/wipeout/menu.c \
+	src/wipeout/main_menu.c \
+	src/wipeout/ingame_menus.c \
+	src/wipeout/title.c \
+	src/wipeout/intro.c \
+	src/wipeout/scene.c \
+	src/wipeout/ship.c \
+	src/wipeout/ship_ai.c \
+	src/wipeout/ship_player.c \
+	src/wipeout/track.c \
+	src/wipeout/weapon.c \
+	src/wipeout/particle.c \
+	src/wipeout/sfx.c \
+	src/utils.c \
+	src/types.c \
+	src/system.c \
+	src/mem.c \
+	src/input.c \
+	src/render_gl.c \
+	src/platform_sdl.c
+
+OBJS     := $(SRC:.c=.o)
+
+PREFIX  = arm-vita-eabi
+CC = $(PREFIX)-gcc
+CXX = $(PREFIX)-g++
+CFLAGS  = -fno-lto -g -Wl,-q,--wrap,fopen,--wrap,stat -O3 -DRENDERER_GL \
+		-I$(VITASDK)/$(PREFIX)/include/SDL2
+
+ifeq ($(SYS_APP_MODE),1)
+CFLAGS += -DSYS_APP_MODE
+endif
+
+CXXFLAGS  = $(CFLAGS) -fno-exceptions -std=gnu++11 -fpermissive
+ASFLAGS = $(CFLAGS)
+
+all: $(TARGET).velf
+
+%.velf: %.elf
+	cp $< $<.unstripped.elf
+	$(PREFIX)-strip -g $<
+	vita-elf-create $< $@
+	vita-make-fself -c -s $@ eboot_safe.bin
+
+$(TARGET).elf: $(OBJS)
+	$(CXX) $(CXXFLAGS) $^ $(LIBS) -o $@
+
+clean:
+	@rm -rf $(TARGET).velf $(TARGET).elf $(TARGET).sysvelf $(OBJS)

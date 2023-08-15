@@ -4,9 +4,13 @@
 #include "types.h"
 
 #define SYSTEM_WINDOW_NAME "wipEout"
+#ifdef __vita__
+#define SYSTEM_WINDOW_WIDTH 960
+#define SYSTEM_WINDOW_HEIGHT 544
+#else
 #define SYSTEM_WINDOW_WIDTH 1280
 #define SYSTEM_WINDOW_HEIGHT 720
-
+#endif
 void system_init();
 void system_update();
 void system_cleanup();

@@ -11,7 +11,9 @@
 // Linux
 #elif defined(__unix__)
 	#include <GL/glew.h>
-	
+// PSVita
+#elif defined(__vita__)
+	#include <vitaGL.h>
 // WINDOWS
 #else
 	#include <windows.h>
@@ -390,7 +392,7 @@ static void render_flush();
 // }
 
 void render_init(vec2i_t screen_size) {	
-	#if defined(__APPLE__) && defined(__MACH__)
+	#if (defined(__APPLE__) && defined(__MACH__)) || defined(__vita__)
 		// OSX
 		// (nothing to do here)
 	#else
@@ -533,7 +535,9 @@ void render_set_resolution(render_resolution_t res) {
 	if (!backbuffer) {
 		glGenTextures(1, &backbuffer_texture);	
 		glGenFramebuffers(1, &backbuffer);
+#ifndef __vita__
 		glGenRenderbuffers(1, &backbuffer_depth_buffer);
+#endif
 	}
 	
 	glBindTexture(GL_TEXTURE_2D, backbuffer_texture);
@@ -544,13 +548,11 @@ void render_set_resolution(render_resolution_t res) {
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 	
 	glBindFramebuffer(GL_FRAMEBUFFER, backbuffer);
-	glBindRenderbuffer(GL_RENDERBUFFER, backbuffer_depth_buffer);	
-	glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, backbuffer_depth_buffer);
 	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, backbuffer_texture, 0);
-	
+#ifndef __vita__	
 	glBindRenderbuffer(GL_RENDERBUFFER, backbuffer_depth_buffer);
 	glRenderbufferStorage(GL_RENDERBUFFER, RENDER_DEPTH_BUFFER_INTERNAL_FORMAT, backbuffer_size.x, backbuffer_size.y);
-
+#endif
 	projection_mat_2d = render_setup_2d_projection_mat(backbuffer_size);
 	projection_mat_3d = render_setup_3d_projection_mat(backbuffer_size);
 
@@ -700,7 +702,11 @@ void render_set_depth_offset(float offset) {
 	}
 
 	glEnable(GL_POLYGON_OFFSET_FILL);
-	glPolygonOffset(offset, 1.0);
+#ifdef __vita__
+	glPolygonOffset(-16, -16);
+#else
+	glPolygonOffset(offset, 1);
+#endif
 }
 
 void render_set_screen_position(vec2_t pos) {
@@ -992,10 +998,12 @@ void render_textures_reset(uint16_t len) {
 }
 
 void render_textures_dump(const char *path) {
+#ifndef __vita__
 	int width = ATLAS_SIZE * ATLAS_GRID;
 	int height = ATLAS_SIZE * ATLAS_GRID;
 	rgba_t *pixels = malloc(sizeof(rgba_t) * width * height);
 	glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
 	stbi_write_png(path, width, height, 4, pixels, 0);
 	free(pixels);
+#endif
 }

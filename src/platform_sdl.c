@@ -4,6 +4,45 @@
 #include "input.h"
 #include "system.h"
 
+#ifdef __vita__
+#include <vitasdk.h>
+#include <vitaGL.h>
+int _newlib_heap_size_user = 256 * 1024 * 1024;
+
+char patched_fname[256];
+void patch_fname(char *fname) {
+	if (!strncmp(fname, "./", 2)) {
+		sprintf(patched_fname, "ux0:data/wipeout/%s", &fname[2]);
+	} else {
+		sprintf(patched_fname, "ux0:data/wipeout/%s", fname);
+	}
+}
+
+int __real_stat(const char *fname, struct stat *mode);
+int __wrap_stat(const char *fname, struct stat *mode) {
+	//printf("fopen %s\n", fname);
+	if (!strncmp(fname, "ux0:", 4)) {
+		return __real_stat(fname, mode);
+	} else {
+		patch_fname(fname);
+	}
+	return __real_stat(patched_fname, mode);	
+}
+
+FILE *__real_fopen(char *fname, char *mode);
+FILE *__wrap_fopen(char *fname, char *mode) {
+	//printf("fopen %s\n", fname);
+	if (!strncmp(fname, "ux0:", 4)) {
+		return __real_fopen(fname, mode);
+	} else {
+		patch_fname(fname);
+	}
+	return __real_fopen(patched_fname, mode);
+}
+
+
+#endif
+
 static uint64_t perf_freq = 0;
 static bool wants_to_exit = false;
 static SDL_Window *window;
@@ -247,8 +286,30 @@ void platform_set_audio_mix_cb(void (*cb)(float *buffer, uint32_t len)) {
 #endif
 
 
-
+#ifdef __vita__
+int wipeout_main (unsigned int argc, void* argv);
 int main(int argc, char *argv[]) {
+
+	scePowerSetArmClockFrequency(444);
+	scePowerSetBusClockFrequency(222);
+	scePowerSetGpuClockFrequency(222);
+	scePowerSetGpuXbarClockFrequency(166);
+	
+	// We need a bigger stack to run Wipeout, so we create a new thread with a proper stack size
+	SceUID main_thread = sceKernelCreateThread("Wipeout", wipeout_main, 0x40, 0x200000, 0, 0, NULL);
+	if (main_thread >= 0){
+		sceKernelStartThread(main_thread, 0, NULL);
+		sceKernelWaitThreadEnd(main_thread, NULL, NULL);
+	}
+	
+	vglSetSemanticBindingMode(VGL_MODE_POSTPONED);
+	vglInitExtended(0, 960, 544, 16 * 1024 * 1024, SCE_GXM_MULTISAMPLE_4X);
+	SDL_setenv("VITA_USE_GLSL_TRANSLATOR", "1", 1);
+}
+int wipeout_main (unsigned int argc, void* argv) {
+#else
+int main(int argc, char *argv[]) {
+#endif
 	SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_GAMECONTROLLER);
 
 	audio_device = SDL_OpenAudioDevice(NULL, 0, &(SDL_AudioSpec){

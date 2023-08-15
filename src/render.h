@@ -19,9 +19,11 @@ typedef enum {
 	RENDER_POST_CRT,
 	NUM_RENDER_POST_EFFCTS,
 } render_post_effect_t;
-
+#ifdef __vita__
+#define RENDER_USE_MIPMAPS 0
+#else
 #define RENDER_USE_MIPMAPS 1
-
+#endif
 #define RENDER_FADEOUT_NEAR 48000.0
 #define RENDER_FADEOUT_FAR 64000.0
 
