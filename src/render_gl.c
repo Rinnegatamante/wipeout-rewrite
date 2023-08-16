@@ -266,7 +266,12 @@ static const char * const SHADER_POST_FS_CRT = SHADER_SOURCE(
 	}
 
 	void main(){
+#ifdef __vita__
+		vec2 uv = curve((vec2(960,544) - gl_FragCoord.xy) / screen_size);
+		uv.x = 1 - uv.x;
+#else
 		vec2 uv = curve(gl_FragCoord.xy / screen_size);
+#endif
 		vec3 color;
 		float x =  sin(0.3*time+uv.y*21.0)*sin(0.7*time+uv.y*29.0)*sin(0.3+0.33*time+uv.y*31.0)*0.0017;
 
