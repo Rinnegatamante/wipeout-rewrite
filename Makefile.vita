@@ -43,23 +43,28 @@ CXX = $(PREFIX)-g++
 CFLAGS  = -fno-lto -g -Wl,-q,--wrap,fopen,--wrap,stat -O3 -DRENDERER_GL \
 		-I$(VITASDK)/$(PREFIX)/include/SDL2
 
-ifeq ($(SYS_APP_MODE),1)
-CFLAGS += -DSYS_APP_MODE
-endif
-
 CXXFLAGS  = $(CFLAGS) -fno-exceptions -std=gnu++11 -fpermissive
 ASFLAGS = $(CFLAGS)
 
-all: $(TARGET).velf
+all: $(TARGET).vpk
 
-%.velf: %.elf
+$(TARGET).vpk: eboot.bin
+	vita-mksfoex -s TITLE_ID=WIPEOUT95 -d ATTRIBUTE2=12 $(TARGET) param.sfo
+	vita-pack-vpk -s param.sfo -b eboot.bin $@ \
+		-a livearea/icon0.png=sce_sys/icon0.png \
+		-a livearea/bg0.png=sce_sys/livearea/contents/bg0.png \
+		-a livearea/feisar.png=sce_sys/livearea/contents/feisar.png \
+		-a livearea/template.xml=sce_sys/livearea/contents/template.xml \
+		-a livearea/pic0.png=sce_sys/pic0.png
+
+eboot.bin: $(TARGET).elf
 	cp $< $<.unstripped.elf
 	$(PREFIX)-strip -g $<
 	vita-elf-create $< $@
-	vita-make-fself -c -s $@ eboot_safe.bin
+	vita-make-fself -c -s $@ eboot.bin
 
 $(TARGET).elf: $(OBJS)
 	$(CXX) $(CXXFLAGS) $^ $(LIBS) -o $@
 
 clean:
-	@rm -rf $(TARGET).velf $(TARGET).elf $(TARGET).sysvelf $(OBJS)
+	@rm -rf $(TARGET).velf $(TARGET).elf eboot.bin $(OBJS) param.sfo

@@ -72,9 +72,38 @@ make wasm
 
 This builds the minimal version (no music, no intro) as well as the full version.
 
+### PSVita
+
+You'll need to compile vitaGL with:
+```
+make TEXTURES_SPEEDHACK=1 HAVE_GLSL_SUPPORT=1 NO_DEBUG=1 install
+```
+
+You'll also need [Northfear's SDL2 fork](https://github.com/Northfear/SDL).<br>
+Once you're set with dependencies, just compile the final executable with
+```
+make -f Makefile.vita
+```
 
 ## Running
 
+## PSVita
+This repository does not contain the assets (textures, 3d models etc.) required to run the game. This code mostly assumes to have the PSX NTSC data, but some menu models from the PC version are loaded as well. Both of these can be easily found on archive.org and similar sites. The music (optional) needs to be provided in [QOA format](https://github.com/phoboslab/qoa). The intro video as MPEG1.
+
+The directory structure is assumed to be as follows
+
+```
+ux0:data/wipeout/wipeout/textures/
+ux0:data/wipeout/wipeout/music/track01.qoa
+ux0:data/wipeout/wipeout/music/track02.qoa
+...
+```
+
+Note that the blog post announcing this project may or may not provide a link to a ZIP containing all files needed. Who knows!
+
+
+
+## Other systems
 This repository does not contain the assets (textures, 3d models etc.) required to run the game. This code mostly assumes to have the PSX NTSC data, but some menu models from the PC version are loaded as well. Both of these can be easily found on archive.org and similar sites. The music (optional) needs to be provided in [QOA format](https://github.com/phoboslab/qoa). The intro video as MPEG1.
 
 The directory structure is assumed to be as follows
@@ -130,6 +159,10 @@ Some things from the original game are not yet implemented in this rewrite. This
 - since this whole thing is relying on some custom assembled assets anyway, maybe all SFX should be in QOA format too (like the music). Or switch everything to Vorbis.
 - a lot of functions assume that there's just one player. This needs to be fixed for a potential splitscreen mode.
 
+
+## PSVita Credits
+- Once13one for the Livearea assets.
+- CatoTheYounger for testing the homebrew.
 
 ## License
 
