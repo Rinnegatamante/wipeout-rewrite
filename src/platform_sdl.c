@@ -15,6 +15,8 @@ char patched_fname[256];
 void patch_fname(char *fname) {
 	if (!strncmp(fname, "./", 2)) {
 		sprintf(patched_fname, "ux0:data/wipeout/%s", &fname[2]);
+	} else if (!strncmp(fname, "app0:", 5)) {
+		sprintf(patched_fname, "ux0:data/wipeout/%s", &fname[6]);
 	} else {
 		sprintf(patched_fname, "ux0:data/wipeout/%s", fname);
 	}

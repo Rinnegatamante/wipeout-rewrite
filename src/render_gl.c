@@ -136,7 +136,7 @@ static const char * const SHADER_GAME_VS = SHADER_SOURCE(
 	uniform float time;
 	
 	void main(void) {
-		gl_Position = projection * view * model * vec4(pos, 1.0);
+		gl_Position = projection * (view * (model * vec4(pos, 1.0)));
 		gl_Position.xy += screen.xy * gl_Position.w;
 		v_color = color;
 		v_color.a *= smoothstep(
@@ -289,8 +289,8 @@ static const char * const SHADER_POST_FS_CRT = SHADER_SOURCE(
 
 		float scanlines = clamp( 0.35+0.35*sin(3.5*time+uv.y*screen_size.y*1.5), 0.0, 1.0);
 		
-		float s = pow(scanlines,1.7);
-		color = color * vec3(0.4+0.7*s);
+		float sc = pow(scanlines,1.7);
+		color = color * vec3(0.4+0.7*sc);
 
 		color *= 1.0+0.01*sin(110.0*time);
 		if (uv.x < 0.0 || uv.x > 1.0)

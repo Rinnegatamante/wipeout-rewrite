@@ -41,7 +41,7 @@ PREFIX  = arm-vita-eabi
 CC = $(PREFIX)-gcc
 CXX = $(PREFIX)-g++
 CFLAGS  = -fno-lto -g -Wl,-q,--wrap,fopen,--wrap,stat -O3 -DRENDERER_GL \
-		-I$(VITASDK)/$(PREFIX)/include/SDL2
+		-I$(VITASDK)/$(PREFIX)/include/SDL2 -Isrc/libs
 
 CXXFLAGS  = $(CFLAGS) -fno-exceptions -std=gnu++11 -fpermissive
 ASFLAGS = $(CFLAGS)
