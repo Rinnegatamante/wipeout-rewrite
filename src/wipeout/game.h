@@ -240,6 +240,7 @@ typedef struct {
 
 	float sfx_volume;
 	float music_volume;
+	float internal_roll;
 	uint8_t ui_scale;
 	bool show_fps;
 	bool fullscreen;
@@ -262,9 +263,9 @@ extern const game_def_t def;
 extern game_t g;
 extern save_t save;
 
-void game_init();
+void game_init(void);
 void game_set_scene(game_scene_t scene);
-void game_reset_championship();
-void game_update();
+void game_reset_championship(void);
+void game_update(void);
 
 #endif

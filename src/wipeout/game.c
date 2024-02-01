@@ -396,6 +396,7 @@ save_t save = {
 
 	.sfx_volume = 0.6,
 	.music_volume = 0.5,
+	.internal_roll = 0.6,
 	.ui_scale = 0,
 	.show_fps = false,
 	.fullscreen = false,
@@ -487,8 +488,8 @@ game_t g = {0};
 
 
 struct {
-	void (*init)();
-	void (*update)();
+	void (*init)(void);
+	void (*update)(void);
 } game_scenes[] = {
 	[GAME_SCENE_INTRO] = {intro_init, intro_update},
 	[GAME_SCENE_TITLE] = {title_init, title_update},
@@ -501,13 +502,16 @@ static game_scene_t scene_next = GAME_SCENE_NONE;
 static int global_textures_len = 0;
 static void *global_mem_mark = 0;
 
-void game_init() {
-	if (file_exists("save.dat")) {
-		uint32_t size;
-		save_t *save_file = (save_t *)file_load("save.dat", &size);
+void game_init(void) {
+	uint32_t size;
+	save_t *save_file = (save_t *)platform_load_userdata("save.dat", &size);
+	if (save_file) {
 		if (size == sizeof(save_t) && save_file->magic == SAVE_DATA_MAGIC) {
 			printf("load save data success\n");
 			memcpy(&save, save_file, sizeof(save_t));
+		}
+		else {
+			printf("unexpected size/magic for save data");
 		}
 		mem_temp_free(save_file);
 	}
@@ -585,7 +589,7 @@ void game_set_scene(game_scene_t scene) {
 	scene_next = scene;
 }
 
-void game_reset_championship() {
+void game_reset_championship(void) {
 	for (int i = 0; i < len(g.championship_ranks); i++) {
 		g.championship_ranks[i].points = 0;
 		g.championship_ranks[i].pilot = i;
@@ -593,7 +597,7 @@ void game_reset_championship() {
 	g.lives = NUM_LIVES;
 }
 
-void game_update() {
+void game_update(void) {
 	double frame_start_time = platform_now();
 
 	int sh = render_size().y;
@@ -620,11 +624,18 @@ void game_update() {
 		game_scenes[scene_current].update();
 	}
 
+	// Fullscreen might have been toggled through alt+enter
+	bool fullscreen = platform_get_fullscreen();
+	if (fullscreen != save.fullscreen) {
+		save.fullscreen = fullscreen;
+		save.is_dirty = true;
+	}
+
 	if (save.is_dirty) {
 		// FIXME: use a text based format?
 		// FIXME: this should probably run async somewhere
 		save.is_dirty = false;
-		file_store("save.dat", &save, sizeof(save_t)); 
+		platform_store_userdata("save.dat", &save, sizeof(save_t));
 		printf("wrote save.dat\n");
 	}
 

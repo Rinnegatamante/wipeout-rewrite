@@ -1,6 +1,7 @@
 #include "../types.h"
 #include "../mem.h"
 #include "../utils.h"
+#include "../platform.h"
 
 #include "object.h"
 #include "track.h"
@@ -16,7 +17,7 @@
 
 
 #define STB_IMAGE_WRITE_IMPLEMENTATION
-#include "../libs/stb_image_write.h"
+#include <stb_image_write.h>
 
 
 #define TIM_TYPE_PALETTED_4_BPP 0x08
@@ -48,7 +49,7 @@ image_t *image_load_from_bytes(uint8_t *bytes, bool transparent) {
 
 	uint32_t magic = get_i32_le(bytes, &p);
 	uint32_t type = get_i32_le(bytes, &p);
-	uint16_t *palette = NULL;
+	rgba_t palette[256];
 
 	if (
 		type == TIM_TYPE_PALETTED_4_BPP ||
@@ -59,8 +60,9 @@ image_t *image_load_from_bytes(uint8_t *bytes, bool transparent) {
 		uint16_t palette_y = get_i16_le(bytes, &p);
 		uint16_t palette_colors = get_i16_le(bytes, &p);
 		uint16_t palettes = get_i16_le(bytes, &p);
-		palette = (uint16_t *)(bytes + p);
-		p += palette_colors * 2;
+		for (int i = 0; i < palette_colors; i++) {
+			palette[i] = tim_16bit_to_rgba(get_u16_le(bytes, &p), transparent);
+		}
 	}
 
 	uint32_t data_size = get_i32_le(bytes, &p);
@@ -87,23 +89,23 @@ image_t *image_load_from_bytes(uint8_t *bytes, bool transparent) {
 
 	if (type == TIM_TYPE_TRUE_COLOR_16_BPP) {
 		for (int i = 0; i < entries; i++) {
-			image->pixels[pixel_pos++] = tim_16bit_to_rgba(get_i16_le(bytes, &p), transparent);
+			image->pixels[pixel_pos++] = tim_16bit_to_rgba(get_u16_le(bytes, &p), transparent);
 		}
 	}
 	else if (type == TIM_TYPE_PALETTED_8_BPP) {
 		for (int i = 0; i < entries; i++) {
 			int32_t palette_pos = get_i16_le(bytes, &p);
-			image->pixels[pixel_pos++] = tim_16bit_to_rgba(palette[(palette_pos >> 0) & 0xff], transparent);
-			image->pixels[pixel_pos++] = tim_16bit_to_rgba(palette[(palette_pos >> 8) & 0xff], transparent);
+			image->pixels[pixel_pos++] = palette[(palette_pos >> 0) & 0xff];
+			image->pixels[pixel_pos++] = palette[(palette_pos >> 8) & 0xff];
 		}
 	}
 	else if (type == TIM_TYPE_PALETTED_4_BPP) {
 		for (int i = 0; i < entries; i++) {
 			int32_t palette_pos = get_i16_le(bytes, &p);
-			image->pixels[pixel_pos++] = tim_16bit_to_rgba(palette[(palette_pos >>  0) & 0xf], transparent);
-			image->pixels[pixel_pos++] = tim_16bit_to_rgba(palette[(palette_pos >>  4) & 0xf], transparent);
-			image->pixels[pixel_pos++] = tim_16bit_to_rgba(palette[(palette_pos >>  8) & 0xf], transparent);
-			image->pixels[pixel_pos++] = tim_16bit_to_rgba(palette[(palette_pos >> 12) & 0xf], transparent);
+			image->pixels[pixel_pos++] = palette[(palette_pos >>  0) & 0xf];
+			image->pixels[pixel_pos++] = palette[(palette_pos >>  4) & 0xf];
+			image->pixels[pixel_pos++] = palette[(palette_pos >>  8) & 0xf];
+			image->pixels[pixel_pos++] = palette[(palette_pos >> 12) & 0xf];
 		}
 	}
 
@@ -226,7 +228,7 @@ void lzss_decompress(uint8_t *in_data, uint8_t *out_data) {
 cmp_t *image_load_compressed(char *name) {
 	printf("load cmp %s\n", name);
 	uint32_t compressed_size;
-	uint8_t *compressed_bytes = file_load(name, &compressed_size);
+	uint8_t *compressed_bytes = platform_load_asset(name, &compressed_size);
 
 	uint32_t p = 0;
 	int32_t decompressed_size = 0;
@@ -260,7 +262,7 @@ cmp_t *image_load_compressed(char *name) {
 uint16_t image_get_texture(char *name) {
 	printf("load: %s\n", name);
 	uint32_t size;
-	uint8_t *bytes = file_load(name, &size);
+	uint8_t *bytes = platform_load_asset(name, &size);
 	image_t *image = image_load_from_bytes(bytes, false);
 	uint32_t texture_index = render_texture_create(image->width, image->height, image->pixels);
 	mem_temp_free(image);
@@ -272,7 +274,7 @@ uint16_t image_get_texture(char *name) {
 uint16_t image_get_texture_semi_trans(char *name) {
 	printf("load: %s\n", name);
 	uint32_t size;
-	uint8_t *bytes = file_load(name, &size);
+	uint8_t *bytes = platform_load_asset(name, &size);
 	image_t *image = image_load_from_bytes(bytes, true);
 	uint32_t texture_index = render_texture_create(image->width, image->height, image->pixels);
 	mem_temp_free(image);

@@ -1,9 +1,11 @@
 #include "platform.h"
 #include "system.h"
+#include "utils.h"
+#include "mem.h"
 
 #if defined(RENDERER_GL)
 	#ifdef __EMSCRIPTEN__
-		#define SOKOL_GLES2
+		#define SOKOL_GLES3
 	#else
 		#define SOKOL_GLCORE33
 	#endif
@@ -12,10 +14,26 @@
 #endif
 
 #define SOKOL_IMPL
-#include "libs/sokol_audio.h"
-#include "libs/sokol_time.h"
-#include "libs/sokol_app.h"
+#include <sokol_audio.h>
+#include <sokol_time.h>
+#include <sokol_app.h>
 #include "input.h"
+
+// FIXME: we should figure out the actual path where the executabe resides,
+// instead of just assuming it's in the pwd
+#ifdef PATH_ASSETS
+	static const char *path_assets = TOSTRING(PATH_ASSETS);
+#else
+	static const char *path_assets = "";
+#endif
+
+#ifdef PATH_USERDATA
+	static const char *path_userdata = TOSTRING(PATH_USERDATA);
+#else
+	static const char *path_userdata = "";
+#endif
+
+static char *temp_path;
 
 static const uint8_t keyboard_map[] = {
 	[SAPP_KEYCODE_SPACE] = INPUT_KEY_SPACE,
@@ -143,16 +161,20 @@ static const uint8_t keyboard_map[] = {
 
 static void (*audio_callback)(float *buffer, uint32_t len) = NULL;
 
-void platform_exit() {
+void platform_exit(void) {
 	sapp_quit();
 }
 
-vec2i_t platform_screen_size() {
+vec2i_t platform_screen_size(void) {
 	return vec2i(sapp_width(), sapp_height());
 }
 
-double platform_now() {
+double platform_now(void) {
 	return stm_sec(stm_now());
+}
+
+bool platform_get_fullscreen() {
+	return sapp_is_fullscreen();
 }
 
 void platform_set_fullscreen(bool fullscreen) {
@@ -165,8 +187,17 @@ void platform_set_fullscreen(bool fullscreen) {
 }
 
 void platform_handle_event(const sapp_event* ev) {
+	// Detect ALT+Enter press to toggle fullscreen
+	if (
+		ev->type == SAPP_EVENTTYPE_KEY_DOWN && 
+		ev->key_code == SAPP_KEYCODE_ENTER &&
+		(ev->modifiers & SAPP_MODIFIER_ALT)
+	) {
+		platform_set_fullscreen(!sapp_is_fullscreen());
+	}
+
 	// Input Keyboard
-	if (ev->type == SAPP_EVENTTYPE_KEY_DOWN || ev->type == SAPP_EVENTTYPE_KEY_UP) {
+	else if (ev->type == SAPP_EVENTTYPE_KEY_DOWN || ev->type == SAPP_EVENTTYPE_KEY_UP) {
 		float state = ev->type == SAPP_EVENTTYPE_KEY_DOWN ? 1.0 : 0.0;
 		if (ev->key_code > 0 && ev->key_code < sizeof(keyboard_map)) {
 			int code = keyboard_map[ev->key_code];
@@ -233,13 +264,38 @@ void platform_set_audio_mix_cb(void (*cb)(float *buffer, uint32_t len)) {
 	audio_callback = cb;
 }
 
+uint8_t *platform_load_asset(const char *name, uint32_t *bytes_read) {
+	char *path = strcat(strcpy(temp_path, path_assets), name);
+	return file_load(path, bytes_read);
+}
+
+uint8_t *platform_load_userdata(const char *name, uint32_t *bytes_read) {
+	char *path = strcat(strcpy(temp_path, path_userdata), name);
+	if (!file_exists(path)) {
+		*bytes_read = 0;
+		return NULL;
+	}
+	return file_load(path, bytes_read);
+}
+
+uint32_t platform_store_userdata(const char *name, void *bytes, int32_t len) {
+	char *path = strcat(strcpy(temp_path, path_userdata), name);
+	return file_store(path, bytes, len);
+}
+
+void platform_cleanup() {
+	system_cleanup();
+	saudio_shutdown();
+}
+
 sapp_desc sokol_main(int argc, char* argv[]) {
+	temp_path = mem_bump(max(strlen(path_assets), strlen(path_userdata)) + 64);
+
 	stm_setup();
 
 	saudio_setup(&(saudio_desc){
 		.sample_rate = 44100,
 		.buffer_frames = 1024,
-		.num_packets = 256,
 		.num_channels = 2,
 		.stream_cb = platform_audio_callback,
 	});
@@ -249,7 +305,8 @@ sapp_desc sokol_main(int argc, char* argv[]) {
 		.height = SYSTEM_WINDOW_HEIGHT,
 		.init_cb = system_init,
 		.frame_cb = system_update,
-		.cleanup_cb = system_cleanup,
+		.window_title = SYSTEM_WINDOW_NAME,
+		.cleanup_cb = platform_cleanup,
 		.event_cb = platform_handle_event,
 		.win32_console_attach = true
 	};

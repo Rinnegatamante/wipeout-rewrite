@@ -3,6 +3,8 @@
 #include "platform.h"
 #include "input.h"
 #include "system.h"
+#include "utils.h"
+#include "mem.h"
 
 #ifdef __vita__
 #include <vitasdk.h>
@@ -49,6 +51,9 @@ static SDL_Window *window;
 static SDL_AudioDeviceID audio_device;
 static SDL_GameController *gamepad;
 static void (*audio_callback)(float *buffer, uint32_t len) = NULL;
+static char *path_assets = "";
+static char *path_userdata = "";
+static char *temp_path = NULL;
 
 
 uint8_t platform_sdl_gamepad_map[] = {
@@ -57,7 +62,7 @@ uint8_t platform_sdl_gamepad_map[] = {
 	[SDL_CONTROLLER_BUTTON_X] = INPUT_GAMEPAD_X,
 	[SDL_CONTROLLER_BUTTON_Y] = INPUT_GAMEPAD_Y,
 	[SDL_CONTROLLER_BUTTON_BACK] = INPUT_GAMEPAD_SELECT,
-	[SDL_CONTROLLER_BUTTON_GUIDE] = INPUT_INVALID,
+	[SDL_CONTROLLER_BUTTON_GUIDE] = INPUT_GAMEPAD_HOME,
 	[SDL_CONTROLLER_BUTTON_START] = INPUT_GAMEPAD_START,
 	[SDL_CONTROLLER_BUTTON_LEFTSTICK] = INPUT_GAMEPAD_L_STICK_PRESS,
 	[SDL_CONTROLLER_BUTTON_RIGHTSTICK] = INPUT_GAMEPAD_R_STICK_PRESS,
@@ -82,11 +87,11 @@ uint8_t platform_sdl_axis_map[] = {
 };
 
 
-void platform_exit() {
+void platform_exit(void) {
 	wants_to_exit = true;
 }
 
-SDL_GameController *platform_find_gamepad() {
+SDL_GameController *platform_find_gamepad(void) {
 	for (int i = 0; i < SDL_NumJoysticks(); i++) {
 		if (SDL_IsGameController(i)) {
 			return SDL_GameControllerOpen(i);
@@ -97,11 +102,20 @@ SDL_GameController *platform_find_gamepad() {
 }
 
 
-void platform_pump_events() {
+void platform_pump_events(void) {
 	SDL_Event ev;
 	while (SDL_PollEvent(&ev)) {
+		// Detect ALT+Enter press to toggle fullscreen
+		if (
+			ev.type == SDL_KEYDOWN && 
+			ev.key.keysym.scancode == SDL_SCANCODE_RETURN &&
+			(ev.key.keysym.mod & (KMOD_LALT | KMOD_RALT))
+		) {
+			platform_set_fullscreen(!platform_get_fullscreen());
+		}
+
 		// Input Keyboard
-		if (ev.type == SDL_KEYDOWN || ev.type == SDL_KEYUP) {
+		else if (ev.type == SDL_KEYDOWN || ev.type == SDL_KEYUP) {
 			int code = ev.key.keysym.scancode;
 			float state = ev.type == SDL_KEYDOWN ? 1.0 : 0.0;
 			if (code >= SDL_SCANCODE_LCTRL && code <= SDL_SCANCODE_RALT) {
@@ -213,15 +227,13 @@ void platform_pump_events() {
 	}
 }
 
-vec2i_t platform_screen_size() {
-	int width, height;
-	SDL_GL_GetDrawableSize(window, &width, &height);
-	return vec2i(width, height);
-}
-
-double platform_now() {
+double platform_now(void) {
 	uint64_t perf_counter = SDL_GetPerformanceCounter();
 	return (double)perf_counter / (double)perf_freq;
+}
+
+bool platform_get_fullscreen(void) {
+	return SDL_GetWindowFlags(window) & SDL_WINDOW_FULLSCREEN;
 }
 
 void platform_set_fullscreen(bool fullscreen) {
@@ -255,11 +267,30 @@ void platform_set_audio_mix_cb(void (*cb)(float *buffer, uint32_t len)) {
 }
 
 
-#if defined(RENDERER_GL)
+uint8_t *platform_load_asset(const char *name, uint32_t *bytes_read) {
+	char *path = strcat(strcpy(temp_path, path_assets), name);
+	return file_load(path, bytes_read);
+}
+
+uint8_t *platform_load_userdata(const char *name, uint32_t *bytes_read) {
+	char *path = strcat(strcpy(temp_path, path_userdata), name);
+	if (!file_exists(path)) {
+		*bytes_read = 0;
+		return NULL;
+	}
+	return file_load(path, bytes_read);
+}
+
+uint32_t platform_store_userdata(const char *name, void *bytes, int32_t len) {
+	char *path = strcat(strcpy(temp_path, path_userdata), name);
+	return file_store(path, bytes, len);
+}
+
+#if defined(RENDERER_GL) // ----------------------------------------------------
 	#define PLATFORM_WINDOW_FLAGS SDL_WINDOW_OPENGL
 	SDL_GLContext platform_gl;
 
-	void platform_video_init() {
+	void platform_video_init(void) {
 		#if defined(USE_GLES2)
 			SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_ES);
 			SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);
@@ -270,21 +301,82 @@ void platform_set_audio_mix_cb(void (*cb)(float *buffer, uint32_t len)) {
 		SDL_GL_SetSwapInterval(1);
 	}
 
-	void platform_prepare_frame() {
+	void platform_prepare_frame(void) {
 		// nothing
 	}
 
-	void platform_video_cleanup() {
+	void platform_video_cleanup(void) {
 		SDL_GL_DeleteContext(platform_gl);
 	}
 
-	void platform_end_frame() {
+	void platform_end_frame(void) {
 		SDL_GL_SwapWindow(window);
 	}
+
+	vec2i_t platform_screen_size(void) {
+		int width, height;
+		SDL_GL_GetDrawableSize(window, &width, &height);
+		return vec2i(width, height);
+	}
+
+
+#elif defined(RENDERER_SOFTWARE) // ----------------------------------------------
+	#define PLATFORM_WINDOW_FLAGS 0
+	static SDL_Renderer *renderer;
+	static SDL_Texture *screenbuffer = NULL;
+	static void *screenbuffer_pixels = NULL;
+	static int screenbuffer_pitch;
+	static vec2i_t screenbuffer_size = vec2i(0, 0);
+	static vec2i_t screen_size = vec2i(0, 0);
+
+
+	void platform_video_init(void) {
+		renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
+	}
+
+	void platform_video_cleanup(void) {
+		if (screenbuffer) {
+			SDL_DestroyTexture(screenbuffer);
+		}
+		SDL_DestroyRenderer(renderer);
+	}
+
+	void platform_prepare_frame(void) {
+		if (screen_size.x != screenbuffer_size.x || screen_size.y != screenbuffer_size.y) {
+			if (screenbuffer) {
+				SDL_DestroyTexture(screenbuffer);
+			}
+			screenbuffer = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ABGR8888, SDL_TEXTUREACCESS_STREAMING, screen_size.x, screen_size.y);
+			screenbuffer_size = screen_size;
+		}
+		SDL_LockTexture(screenbuffer, NULL, &screenbuffer_pixels, &screenbuffer_pitch);
+	}
+
+	void platform_end_frame(void) {
+		screenbuffer_pixels = NULL;
+		SDL_UnlockTexture(screenbuffer);
+		SDL_RenderCopy(renderer, screenbuffer, NULL, NULL);
+		SDL_RenderPresent(renderer);
+	}
+
+	rgba_t *platform_get_screenbuffer(int32_t *pitch) {
+		*pitch = screenbuffer_pitch;
+		return screenbuffer_pixels;
+	}
+
+	vec2i_t platform_screen_size(void) {
+		int width, height;
+		SDL_GetWindowSize(window, &width, &height);
+
+		// float aspect = (float)width / (float)height;
+		// screen_size = vec2i(240 * aspect, 240);
+		screen_size = vec2i(width, height);
+		return screen_size;
+	}
+
 #else
 	#error "Unsupported renderer for platform SDL"
 #endif
-
 
 #ifdef __vita__
 int wipeout_main (unsigned int argc, void* argv);
@@ -310,19 +402,59 @@ int wipeout_main (unsigned int argc, void* argv) {
 #else
 int main(int argc, char *argv[]) {
 #endif
-	SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_GAMECONTROLLER);
+	SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_JOYSTICK | SDL_INIT_GAMECONTROLLER);
 
-	audio_device = SDL_OpenAudioDevice(NULL, 0, &(SDL_AudioSpec){
-		.freq = 44100,
-		.format = AUDIO_F32,
-		.channels = 2,
-		.samples = 1024,
-		.callback = platform_audio_callback
-	}, NULL, 0);
+	// Figure out the absolute asset and userdata paths. These may either be
+	// supplied at build time through -DPATH_ASSETS=.. and -DPATH_USERDATA=..
+	// or received at runtime from SDL. Note that SDL may return NULL for these.
+	// We fall back to the current directory (i.e. just "") in this case.
+
+	char *sdl_path_assets = NULL;
+	#ifdef PATH_ASSETS
+		path_assets = TOSTRING(PATH_ASSETS);
+	#else
+		sdl_path_assets = SDL_GetBasePath();
+		if (sdl_path_assets) {
+			path_assets = sdl_path_assets;
+		}
+	#endif
+
+	char *sdl_path_userdata = NULL;
+	#ifdef PATH_USERDATA
+		path_userdata = TOSTRING(PATH_USERDATA);
+	#else
+		sdl_path_userdata = SDL_GetPrefPath("phoboslab", "wipeout");
+		if (sdl_path_userdata) {
+			path_userdata = sdl_path_userdata;
+		}
+	#endif
+
+	// Reserve some space for concatenating the asset and userdata paths with
+	// local filenames.
+	temp_path = mem_bump(max(strlen(path_assets), strlen(path_userdata)) + 64);
+
+	// Load gamecontrollerdb.txt if present.
+	// FIXME: Should this load from userdata instead?
+	char *gcdb_path = strcat(strcpy(temp_path, path_assets), "gamecontrollerdb.txt");
+	int gcdb_res = SDL_GameControllerAddMappingsFromFile(gcdb_path);
+	if (gcdb_res < 0) {
+		printf("Failed to load gamecontrollerdb.txt\n");
+	}
+	else {
+		printf("load gamecontrollerdb.txt\n");
+	}
 
 	gamepad = platform_find_gamepad();
 
 	perf_freq = SDL_GetPerformanceFrequency();
+
+	audio_device = SDL_OpenAudioDevice(NULL, 0, &(SDL_AudioSpec){
+		.freq = 44100,
+		.format = AUDIO_F32SYS,
+		.channels = 2,
+		.samples = 1024,
+		.callback = platform_audio_callback
+	}, NULL, 0);
 
 	window = SDL_CreateWindow(
 		SYSTEM_WINDOW_NAME,
@@ -343,6 +475,19 @@ int main(int argc, char *argv[]) {
 
 	system_cleanup();
 	platform_video_cleanup();
+
+	SDL_DestroyWindow(window);
+
+	if (gamepad) {
+		SDL_GameControllerClose(gamepad);
+	}
+
+	if (sdl_path_assets) {
+		SDL_free(sdl_path_assets);
+	}
+	if (sdl_path_userdata) {
+		SDL_free(sdl_path_userdata);
+	}
 
 	SDL_CloseAudioDevice(audio_device);
 	SDL_Quit();

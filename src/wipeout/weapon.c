@@ -74,7 +74,7 @@ void weapon_fire_turbo(ship_t *ship);
 
 void invert_shield_polys(Object *shield);
 
-void weapons_load() {
+void weapons_load(void) {
 	weapons = mem_bump(sizeof(weapon_t) * WEAPONS_MAX);
 	weapon_assets.reticle = image_get_texture("wipeout/textures/target2.tim");
 
@@ -106,7 +106,7 @@ void weapons_load() {
 	weapons_init();
 }
 
-void weapons_init() {
+void weapons_init(void) {
 	weapons_active = 0;
 }
 
@@ -160,7 +160,7 @@ void weapons_fire_delayed(ship_t *ship, int weapon_type) {
 
 bool weapon_collides_with_track(weapon_t *self);
 
-void weapons_update() {
+void weapons_update(void) {
 	for (int i = 0; i < weapons_active; i++) {
 		weapon_t *weapon = &weapons[i];
 		
@@ -214,7 +214,7 @@ void weapons_update() {
 	}
 }
 
-void weapons_draw() {
+void weapons_draw(void) {
 	mat4_t mat = mat4_identity();
 	for (int i = 0; i < weapons_active; i++) {
 		weapon_t *weapon = &weapons[i];
@@ -353,15 +353,15 @@ void weapon_update_mine_lights(weapon_t *self, int index) {
 	for (int i = 0; i < 8; i++) {
 		switch (prm.primitive->type) {
 		case PRM_TYPE_GT3:
-			prm.gt3->colour[0].as_rgba.r = 230;
-			prm.gt3->colour[1].as_rgba.r = r;
-			prm.gt3->colour[2].as_rgba.r = r;
-			prm.gt3->colour[0].as_rgba.g = 0;
-			prm.gt3->colour[1].as_rgba.g = 0x40;
-			prm.gt3->colour[2].as_rgba.g = 0x40;
-			prm.gt3->colour[0].as_rgba.b = 0;
-			prm.gt3->colour[1].as_rgba.b = 0;
-			prm.gt3->colour[2].as_rgba.b = 0;
+			prm.gt3->color[0].r = 230;
+			prm.gt3->color[1].r = r;
+			prm.gt3->color[2].r = r;
+			prm.gt3->color[0].g = 0;
+			prm.gt3->color[1].g = 0x40;
+			prm.gt3->color[2].g = 0x40;
+			prm.gt3->color[0].b = 0;
+			prm.gt3->color[1].b = 0;
+			prm.gt3->color[2].b = 0;
 			prm.gt3 += 1;
 			break;
 		}
@@ -585,20 +585,20 @@ void weapon_update_shield(weapon_t *self) {
 			col1 = sin(color_timer * coords[1]) * 127 + 128;
 			col2 = sin(color_timer * coords[2]) * 127 + 128;
 
-			poly.g3->colour[0].as_rgba.r = col0;
-			poly.g3->colour[0].as_rgba.g = col0;
-			poly.g3->colour[0].as_rgba.b = 255;
-			poly.g3->colour[0].as_rgba.a = shield_alpha;
+			poly.g3->color[0].r = col0;
+			poly.g3->color[0].g = col0;
+			poly.g3->color[0].b = 255;
+			poly.g3->color[0].a = shield_alpha;
 
-			poly.g3->colour[1].as_rgba.r = col1;
-			poly.g3->colour[1].as_rgba.g = col1;
-			poly.g3->colour[1].as_rgba.b = 255;
-			poly.g3->colour[1].as_rgba.a = shield_alpha;
+			poly.g3->color[1].r = col1;
+			poly.g3->color[1].g = col1;
+			poly.g3->color[1].b = 255;
+			poly.g3->color[1].a = shield_alpha;
 
-			poly.g3->colour[2].as_rgba.r = col2;
-			poly.g3->colour[2].as_rgba.g = col2;
-			poly.g3->colour[2].as_rgba.b = 255;
-			poly.g3->colour[2].as_rgba.a = shield_alpha;
+			poly.g3->color[2].r = col2;
+			poly.g3->color[2].g = col2;
+			poly.g3->color[2].b = 255;
+			poly.g3->color[2].a = shield_alpha;
 			poly.g3 += 1;
 			break;
 
@@ -610,25 +610,25 @@ void weapon_update_shield(weapon_t *self) {
 			col2 = sin(color_timer * coords[2]) * 127 + 128;
 			col3 = sin(color_timer * coords[3]) * 127 + 128;
 
-			poly.g4->colour[0].as_rgba.r = col0;
-			poly.g4->colour[0].as_rgba.g = col0;
-			poly.g4->colour[0].as_rgba.b = 255;
-			poly.g4->colour[0].as_rgba.a = shield_alpha;
+			poly.g4->color[0].r = col0;
+			poly.g4->color[0].g = col0;
+			poly.g4->color[0].b = 255;
+			poly.g4->color[0].a = shield_alpha;
 
-			poly.g4->colour[1].as_rgba.r = col1;
-			poly.g4->colour[1].as_rgba.g = col1;
-			poly.g4->colour[1].as_rgba.b = 255;
-			poly.g4->colour[1].as_rgba.a = shield_alpha;
+			poly.g4->color[1].r = col1;
+			poly.g4->color[1].g = col1;
+			poly.g4->color[1].b = 255;
+			poly.g4->color[1].a = shield_alpha;
 
-			poly.g4->colour[2].as_rgba.r = col2;
-			poly.g4->colour[2].as_rgba.g = col2;
-			poly.g4->colour[2].as_rgba.b = 255;
-			poly.g4->colour[2].as_rgba.a = shield_alpha;
+			poly.g4->color[2].r = col2;
+			poly.g4->color[2].g = col2;
+			poly.g4->color[2].b = 255;
+			poly.g4->color[2].a = shield_alpha;
 
-			poly.g4->colour[3].as_rgba.r = col3;
-			poly.g4->colour[3].as_rgba.g = col3;
-			poly.g4->colour[3].as_rgba.b = 255;
-			poly.g4->colour[3].as_rgba.a = shield_alpha;
+			poly.g4->color[3].r = col3;
+			poly.g4->color[3].g = col3;
+			poly.g4->color[3].b = 255;
+			poly.g4->color[3].a = shield_alpha;
 			poly.g4 += 1;
 			break;
 		}

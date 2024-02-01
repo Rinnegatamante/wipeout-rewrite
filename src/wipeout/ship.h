@@ -146,13 +146,15 @@ typedef struct ship_t {
 	sfx_t *sfx_shield;
 } ship_t;
 
-void ships_load();
+void ships_load(void);
 void ships_init(section_t *section);
-void ships_draw();
-void ships_update();
+void ships_draw(void);
+void ships_update(void);
+void ships_reset_exhaust_plumes(void);
 
 void ship_init(ship_t *self, section_t *section, int pilot, int position);
 void ship_init_exhaust_plume(ship_t *self);
+void ship_reset_exhaust_plume(ship_t *self);
 void ship_draw(ship_t *self);
 void ship_draw_shadow(ship_t *self);
 void ship_update(ship_t *self);

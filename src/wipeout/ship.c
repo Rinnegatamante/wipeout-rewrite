@@ -16,7 +16,7 @@
 #include "race.h"
 #include "sfx.h"
 
-void ships_load() {
+void ships_load(void) {
 	texture_list_t ship_textures = image_get_compressed_textures("wipeout/common/allsh.cmp");
 	Object *ship_models = objects_load("wipeout/common/allsh.prm", ship_textures);
 
@@ -120,7 +120,7 @@ static inline bool sort_rank_compare(pilot_points_t *pa, pilot_points_t *pb) {
 	}
 }
 
-void ships_update() {
+void ships_update(void) {
 	if (g.race_type == RACE_TYPE_TIME_TRIAL) {
 		ship_update(&g.ships[g.pilot]);
 	}
@@ -143,13 +143,18 @@ void ships_update() {
 	}
 }
 
+void ships_reset_exhaust_plumes(void) {
+	for (int i = 0; i < len(g.ships); i++) {
+		ship_reset_exhaust_plume(&g.ships[i]);
+	}
+}
 
 
-void ships_draw() {
+void ships_draw(void) {
 	// Ship models
 	for (int i = 0; i < len(g.ships); i++) {
 		if (
-			flags_is(g.ships[i].flags, SHIP_VIEW_INTERNAL) ||
+			(flags_is(g.ships[i].flags, SHIP_VIEW_INTERNAL) && flags_not(g.ships[i].flags, SHIP_IN_RESCUE)) ||
 			(g.race_type == RACE_TYPE_TIME_TRIAL && i != g.pilot)
 		) {
 			continue;
@@ -291,10 +296,10 @@ void ship_init_exhaust_plume(ship_t *self) {
 				indices[indices_len++] = prm.ft3->coords[2];
 
 				flags_add(prm.ft3->flag, PRM_TRANSLUCENT);
-				prm.ft3->colour.as_rgba.r = 180;
-				prm.ft3->colour.as_rgba.g = 97 ;
-				prm.ft3->colour.as_rgba.b = 120;
-				prm.ft3->colour.as_rgba.a = 140;
+				prm.ft3->color.r = 180;
+				prm.ft3->color.g = 97 ;
+				prm.ft3->color.b = 120;
+				prm.ft3->color.a = 140;
 			}
 			prm.ft3 += 1;
 			break;
@@ -328,10 +333,10 @@ void ship_init_exhaust_plume(ship_t *self) {
 
 				flags_add(prm.gt3->flag, PRM_TRANSLUCENT);
 				for (int j = 0; j < 3; j++) {
-					prm.gt3->colour[j].as_rgba.r = 180;
-					prm.gt3->colour[j].as_rgba.g = 97 ;
-					prm.gt3->colour[j].as_rgba.b = 120;
-					prm.gt3->colour[j].as_rgba.a = 140;
+					prm.gt3->color[j].r = 180;
+					prm.gt3->color[j].g = 97 ;
+					prm.gt3->color[j].b = 120;
+					prm.gt3->color[j].a = 140;
 				}
 			}
 			prm.gt3 += 1;
@@ -385,6 +390,17 @@ void ship_init_exhaust_plume(ship_t *self) {
 		if (shared[j] != -1) {
 			self->exhaust_plume[j].v = &self->model->vertices[shared[j]];
 			self->exhaust_plume[j].initial = self->model->vertices[shared[j]];
+		}
+	}
+}
+
+void ship_reset_exhaust_plume(ship_t* self)
+{
+	for (int i = 0; i < 3; i++) {
+		if (self->exhaust_plume[i].v != NULL) {
+			self->exhaust_plume[i].v->z = self->exhaust_plume[i].initial.z;
+			self->exhaust_plume[i].v->x = self->exhaust_plume[i].initial.x;
+			self->exhaust_plume[i].v->y = self->exhaust_plume[i].initial.y;
 		}
 	}
 }
@@ -1001,6 +1017,3 @@ void ship_collide_with_ship(ship_t *self, ship_t *other) {
 	flags_add(self->flags, SHIP_COLL);
 	flags_add(other->flags, SHIP_COLL);
 }
-
-
-

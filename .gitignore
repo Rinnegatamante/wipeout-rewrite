@@ -15,3 +15,5 @@
 *.bin
 *.sfo
 sce_sys/*
+
+gamecontrollerdb.txt

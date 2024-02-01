@@ -2,6 +2,7 @@
 #include "../mem.h"
 #include "../render.h"
 #include "../utils.h"
+#include "../platform.h"
 
 #include "object.h"
 #include "track.h"
@@ -14,19 +15,9 @@
 #include "hud.h"
 #include "object.h"
 
-
-static rgba_t int32_to_rgba(uint32_t v) {
-	return rgba(
-		((v >> 24) & 0xff),
-		((v >> 16) & 0xff),
-		((v >> 8) & 0xff),
-		255
-	);
-}
-
 Object *objects_load(char *name, texture_list_t tl) {
 	uint32_t length = 0;
-	uint8_t *bytes = file_load(name, &length);
+	uint8_t *bytes = platform_load_asset(name, &length);
 	if (!bytes) {
 		die("Failed to load file %s\n", name);
 	}
@@ -77,13 +68,26 @@ Object *objects_load(char *name, texture_list_t tl) {
 		p += 4; // skeleton sub
 		p += 4; // skeleton next
 
+		object->radius = 0;
 		object->vertices = mem_bump(object->vertices_len * sizeof(vec3_t));
 		for (int i = 0; i < object->vertices_len; i++) {
 			object->vertices[i].x = get_i16(bytes, &p);
 			object->vertices[i].y = get_i16(bytes, &p);
 			object->vertices[i].z = get_i16(bytes, &p);
 			p += 2; // padding
+
+			if (fabsf(object->vertices[i].x) > object->radius) {
+				object->radius = fabsf(object->vertices[i].x);
+			}
+			if (fabsf(object->vertices[i].y) > object->radius) {
+				object->radius = fabsf(object->vertices[i].y);
+			}
+			if (fabsf(object->vertices[i].z) > object->radius) {
+				object->radius = fabsf(object->vertices[i].z);
+			}
 		}
+
+
 
 		object->normals = mem_bump(object->normals_len * sizeof(vec3_t));
 		for (int i = 0; i < object->normals_len; i++) {
@@ -106,7 +110,7 @@ Object *objects_load(char *name, texture_list_t tl) {
 				prm.f3->coords[1] = get_i16(bytes, &p);
 				prm.f3->coords[2] = get_i16(bytes, &p);
 				prm.f3->pad1 = get_i16(bytes, &p);
-				prm.f3->colour = int32_to_rgba(get_i32(bytes, &p));
+				prm.f3->color = rgba_from_u32(get_u32(bytes, &p));
 				break;
 
 			case PRM_TYPE_F4:
@@ -115,7 +119,7 @@ Object *objects_load(char *name, texture_list_t tl) {
 				prm.f4->coords[1] = get_i16(bytes, &p);
 				prm.f4->coords[2] = get_i16(bytes, &p);
 				prm.f4->coords[3] = get_i16(bytes, &p);
-				prm.f4->colour = int32_to_rgba(get_i32(bytes, &p));
+				prm.f4->color = rgba_from_u32(get_u32(bytes, &p));
 				break;
 
 			case PRM_TYPE_FT3:
@@ -135,7 +139,7 @@ Object *objects_load(char *name, texture_list_t tl) {
 				prm.ft3->v2 = get_i8(bytes, &p);
 
 				prm.ft3->pad1 = get_i16(bytes, &p);
-				prm.ft3->colour = int32_to_rgba(get_i32(bytes, &p));
+				prm.ft3->color = rgba_from_u32(get_u32(bytes, &p));
 				break;
 
 			case PRM_TYPE_FT4:
@@ -157,7 +161,7 @@ Object *objects_load(char *name, texture_list_t tl) {
 				prm.ft4->u3 = get_i8(bytes, &p);
 				prm.ft4->v3 = get_i8(bytes, &p);
 				prm.ft4->pad1 = get_i16(bytes, &p);
-				prm.ft4->colour = int32_to_rgba(get_i32(bytes, &p));
+				prm.ft4->color = rgba_from_u32(get_u32(bytes, &p));
 				break;
 
 			case PRM_TYPE_G3:
@@ -166,9 +170,9 @@ Object *objects_load(char *name, texture_list_t tl) {
 				prm.g3->coords[1] = get_i16(bytes, &p);
 				prm.g3->coords[2] = get_i16(bytes, &p);
 				prm.g3->pad1 = get_i16(bytes, &p);
-				prm.g3->colour[0] = int32_to_rgba(get_i32(bytes, &p));
-				prm.g3->colour[1] = int32_to_rgba(get_i32(bytes, &p));
-				prm.g3->colour[2] = int32_to_rgba(get_i32(bytes, &p));
+				prm.g3->color[0] = rgba_from_u32(get_u32(bytes, &p));
+				prm.g3->color[1] = rgba_from_u32(get_u32(bytes, &p));
+				prm.g3->color[2] = rgba_from_u32(get_u32(bytes, &p));
 				break;
 
 			case PRM_TYPE_G4:
@@ -177,10 +181,10 @@ Object *objects_load(char *name, texture_list_t tl) {
 				prm.g4->coords[1] = get_i16(bytes, &p);
 				prm.g4->coords[2] = get_i16(bytes, &p);
 				prm.g4->coords[3] = get_i16(bytes, &p);
-				prm.g4->colour[0] = int32_to_rgba(get_i32(bytes, &p));
-				prm.g4->colour[1] = int32_to_rgba(get_i32(bytes, &p));
-				prm.g4->colour[2] = int32_to_rgba(get_i32(bytes, &p));
-				prm.g4->colour[3] = int32_to_rgba(get_i32(bytes, &p));
+				prm.g4->color[0] = rgba_from_u32(get_u32(bytes, &p));
+				prm.g4->color[1] = rgba_from_u32(get_u32(bytes, &p));
+				prm.g4->color[2] = rgba_from_u32(get_u32(bytes, &p));
+				prm.g4->color[3] = rgba_from_u32(get_u32(bytes, &p));
 				break;
 
 			case PRM_TYPE_GT3:
@@ -199,9 +203,9 @@ Object *objects_load(char *name, texture_list_t tl) {
 				prm.gt3->u2 = get_i8(bytes, &p);
 				prm.gt3->v2 = get_i8(bytes, &p);
 				prm.gt3->pad1 = get_i16(bytes, &p);
-				prm.gt3->colour[0] = int32_to_rgba(get_i32(bytes, &p));
-				prm.gt3->colour[1] = int32_to_rgba(get_i32(bytes, &p));
-				prm.gt3->colour[2] = int32_to_rgba(get_i32(bytes, &p));
+				prm.gt3->color[0] = rgba_from_u32(get_u32(bytes, &p));
+				prm.gt3->color[1] = rgba_from_u32(get_u32(bytes, &p));
+				prm.gt3->color[2] = rgba_from_u32(get_u32(bytes, &p));
 				break;
 
 			case PRM_TYPE_GT4:
@@ -223,10 +227,10 @@ Object *objects_load(char *name, texture_list_t tl) {
 				prm.gt4->u3 = get_i8(bytes, &p);
 				prm.gt4->v3 = get_i8(bytes, &p);
 				prm.gt4->pad1 = get_i16(bytes, &p);
-				prm.gt4->colour[0] = int32_to_rgba(get_i32(bytes, &p));
-				prm.gt4->colour[1] = int32_to_rgba(get_i32(bytes, &p));
-				prm.gt4->colour[2] = int32_to_rgba(get_i32(bytes, &p));
-				prm.gt4->colour[3] = int32_to_rgba(get_i32(bytes, &p));
+				prm.gt4->color[0] = rgba_from_u32(get_u32(bytes, &p));
+				prm.gt4->color[1] = rgba_from_u32(get_u32(bytes, &p));
+				prm.gt4->color[2] = rgba_from_u32(get_u32(bytes, &p));
+				prm.gt4->color[3] = rgba_from_u32(get_u32(bytes, &p));
 				break;
 
 
@@ -236,7 +240,7 @@ Object *objects_load(char *name, texture_list_t tl) {
 				prm.lsf3->coords[1] = get_i16(bytes, &p);
 				prm.lsf3->coords[2] = get_i16(bytes, &p);
 				prm.lsf3->normal = get_i16(bytes, &p);
-				prm.lsf3->colour = int32_to_rgba(get_i32(bytes, &p));
+				prm.lsf3->color = rgba_from_u32(get_u32(bytes, &p));
 				break;
 
 			case PRM_TYPE_LSF4:
@@ -247,7 +251,7 @@ Object *objects_load(char *name, texture_list_t tl) {
 				prm.lsf4->coords[3] = get_i16(bytes, &p);
 				prm.lsf4->normal = get_i16(bytes, &p);
 				prm.lsf4->pad1 = get_i16(bytes, &p);
-				prm.lsf4->colour = int32_to_rgba(get_i32(bytes, &p));
+				prm.lsf4->color = rgba_from_u32(get_u32(bytes, &p));
 				break;
 
 			case PRM_TYPE_LSFT3:
@@ -266,7 +270,7 @@ Object *objects_load(char *name, texture_list_t tl) {
 				prm.lsft3->v1 = get_i8(bytes, &p);
 				prm.lsft3->u2 = get_i8(bytes, &p);
 				prm.lsft3->v2 = get_i8(bytes, &p);
-				prm.lsft3->colour = int32_to_rgba(get_i32(bytes, &p));
+				prm.lsft3->color = rgba_from_u32(get_u32(bytes, &p));
 				break;
 
 			case PRM_TYPE_LSFT4:
@@ -288,7 +292,7 @@ Object *objects_load(char *name, texture_list_t tl) {
 				prm.lsft4->v2 = get_i8(bytes, &p);
 				prm.lsft4->u3 = get_i8(bytes, &p);
 				prm.lsft4->v3 = get_i8(bytes, &p);
-				prm.lsft4->colour = int32_to_rgba(get_i32(bytes, &p));
+				prm.lsft4->color = rgba_from_u32(get_u32(bytes, &p));
 				break;
 
 			case PRM_TYPE_LSG3:
@@ -299,9 +303,9 @@ Object *objects_load(char *name, texture_list_t tl) {
 				prm.lsg3->normals[0] = get_i16(bytes, &p);
 				prm.lsg3->normals[1] = get_i16(bytes, &p);
 				prm.lsg3->normals[2] = get_i16(bytes, &p);
-				prm.lsg3->colour[0] = int32_to_rgba(get_i32(bytes, &p));
-				prm.lsg3->colour[1] = int32_to_rgba(get_i32(bytes, &p));
-				prm.lsg3->colour[2] = int32_to_rgba(get_i32(bytes, &p));
+				prm.lsg3->color[0] = rgba_from_u32(get_u32(bytes, &p));
+				prm.lsg3->color[1] = rgba_from_u32(get_u32(bytes, &p));
+				prm.lsg3->color[2] = rgba_from_u32(get_u32(bytes, &p));
 				break;
 
 			case PRM_TYPE_LSG4:
@@ -314,10 +318,10 @@ Object *objects_load(char *name, texture_list_t tl) {
 				prm.lsg4->normals[1] = get_i16(bytes, &p);
 				prm.lsg4->normals[2] = get_i16(bytes, &p);
 				prm.lsg4->normals[3] = get_i16(bytes, &p);
-				prm.lsg4->colour[0] = int32_to_rgba(get_i32(bytes, &p));
-				prm.lsg4->colour[1] = int32_to_rgba(get_i32(bytes, &p));
-				prm.lsg4->colour[2] = int32_to_rgba(get_i32(bytes, &p));
-				prm.lsg4->colour[3] = int32_to_rgba(get_i32(bytes, &p));
+				prm.lsg4->color[0] = rgba_from_u32(get_u32(bytes, &p));
+				prm.lsg4->color[1] = rgba_from_u32(get_u32(bytes, &p));
+				prm.lsg4->color[2] = rgba_from_u32(get_u32(bytes, &p));
+				prm.lsg4->color[3] = rgba_from_u32(get_u32(bytes, &p));
 				break;
 
 			case PRM_TYPE_LSGT3:
@@ -338,9 +342,9 @@ Object *objects_load(char *name, texture_list_t tl) {
 				prm.lsgt3->v1 = get_i8(bytes, &p);
 				prm.lsgt3->u2 = get_i8(bytes, &p);
 				prm.lsgt3->v2 = get_i8(bytes, &p);
-				prm.lsgt3->colour[0] = int32_to_rgba(get_i32(bytes, &p));
-				prm.lsgt3->colour[1] = int32_to_rgba(get_i32(bytes, &p));
-				prm.lsgt3->colour[2] = int32_to_rgba(get_i32(bytes, &p));
+				prm.lsgt3->color[0] = rgba_from_u32(get_u32(bytes, &p));
+				prm.lsgt3->color[1] = rgba_from_u32(get_u32(bytes, &p));
+				prm.lsgt3->color[2] = rgba_from_u32(get_u32(bytes, &p));
 				break;
 
 			case PRM_TYPE_LSGT4:
@@ -364,10 +368,10 @@ Object *objects_load(char *name, texture_list_t tl) {
 				prm.lsgt4->u2 = get_i8(bytes, &p);
 				prm.lsgt4->v2 = get_i8(bytes, &p);
 				prm.lsgt4->pad1 = get_i16(bytes, &p);
-				prm.lsgt4->colour[0] = int32_to_rgba(get_i32(bytes, &p));
-				prm.lsgt4->colour[1] = int32_to_rgba(get_i32(bytes, &p));
-				prm.lsgt4->colour[2] = int32_to_rgba(get_i32(bytes, &p));
-				prm.lsgt4->colour[3] = int32_to_rgba(get_i32(bytes, &p));
+				prm.lsgt4->color[0] = rgba_from_u32(get_u32(bytes, &p));
+				prm.lsgt4->color[1] = rgba_from_u32(get_u32(bytes, &p));
+				prm.lsgt4->color[2] = rgba_from_u32(get_u32(bytes, &p));
+				prm.lsgt4->color[3] = rgba_from_u32(get_u32(bytes, &p));
 				break;
 
 
@@ -378,7 +382,7 @@ Object *objects_load(char *name, texture_list_t tl) {
 				prm.spr->width = get_i16(bytes, &p);
 				prm.spr->height = get_i16(bytes, &p);
 				prm.spr->texture = texture_from_list(tl, get_i16(bytes, &p));
-				prm.spr->colour = int32_to_rgba(get_i32(bytes, &p));
+				prm.spr->color = rgba_from_u32(get_u32(bytes, &p));
 				break;
 
 			case PRM_TYPE_SPLINE:
@@ -395,7 +399,7 @@ Object *objects_load(char *name, texture_list_t tl) {
 				prm.spline->control2.y = get_i32(bytes, &p);
 				prm.spline->control2.z = get_i32(bytes, &p);
 				p += 4; // padding
-				prm.spline->colour = int32_to_rgba(get_i32(bytes, &p));
+				prm.spline->color = rgba_from_u32(get_u32(bytes, &p));
 				break;
 
 			case PRM_TYPE_POINT_LIGHT:
@@ -404,7 +408,7 @@ Object *objects_load(char *name, texture_list_t tl) {
 				prm.pointLight->position.y = get_i32(bytes, &p);
 				prm.pointLight->position.z = get_i32(bytes, &p);
 				p += 4; // padding
-				prm.pointLight->colour = int32_to_rgba(get_i32(bytes, &p));
+				prm.pointLight->color = rgba_from_u32(get_u32(bytes, &p));
 				prm.pointLight->startFalloff = get_i16(bytes, &p);
 				prm.pointLight->endFalloff = get_i16(bytes, &p);
 				break;
@@ -419,7 +423,7 @@ Object *objects_load(char *name, texture_list_t tl) {
 				prm.spotLight->direction.y = get_i16(bytes, &p);
 				prm.spotLight->direction.z = get_i16(bytes, &p);
 				p += 2; // padding
-				prm.spotLight->colour = int32_to_rgba(get_i32(bytes, &p));
+				prm.spotLight->color = rgba_from_u32(get_u32(bytes, &p));
 				prm.spotLight->startFalloff = get_i16(bytes, &p);
 				prm.spotLight->endFalloff = get_i16(bytes, &p);
 				prm.spotLight->coneAngle = get_i16(bytes, &p);
@@ -432,7 +436,7 @@ Object *objects_load(char *name, texture_list_t tl) {
 				prm.infiniteLight->direction.y = get_i16(bytes, &p);
 				prm.infiniteLight->direction.z = get_i16(bytes, &p);
 				p += 2; // padding
-				prm.infiniteLight->colour = int32_to_rgba(get_i32(bytes, &p));
+				prm.infiniteLight->color = rgba_from_u32(get_u32(bytes, &p));
 				break;
 
 
@@ -476,17 +480,17 @@ void object_draw(Object *object, mat4_t *mat) {
 					{
 						.pos = vertex[coord2],
 						.uv = {poly.gt3->u2, poly.gt3->v2},
-						.color = poly.gt3->colour[2]
+						.color = poly.gt3->color[2]
 					},
 					{
 						.pos = vertex[coord1],
 						.uv = {poly.gt3->u1, poly.gt3->v1},
-						.color = poly.gt3->colour[1]
+						.color = poly.gt3->color[1]
 					},
 					{
 						.pos = vertex[coord0],
 						.uv = {poly.gt3->u0, poly.gt3->v0},
-						.color = poly.gt3->colour[0]
+						.color = poly.gt3->color[0]
 					},
 				}
 			}, poly.gt3->texture);
@@ -505,17 +509,17 @@ void object_draw(Object *object, mat4_t *mat) {
 					{
 						.pos = vertex[coord2],
 						.uv = {poly.gt4->u2, poly.gt4->v2},
-						.color = poly.gt4->colour[2]
+						.color = poly.gt4->color[2]
 					},
 					{
 						.pos = vertex[coord1],
 						.uv = {poly.gt4->u1, poly.gt4->v1},
-						.color = poly.gt4->colour[1]
+						.color = poly.gt4->color[1]
 					},
 					{
 						.pos = vertex[coord0],
 						.uv = {poly.gt4->u0, poly.gt4->v0},
-						.color = poly.gt4->colour[0]
+						.color = poly.gt4->color[0]
 					},
 				}
 			}, poly.gt4->texture);
@@ -524,17 +528,17 @@ void object_draw(Object *object, mat4_t *mat) {
 					{
 						.pos = vertex[coord2],
 						.uv = {poly.gt4->u2, poly.gt4->v2},
-						.color = poly.gt4->colour[2]
+						.color = poly.gt4->color[2]
 					},
 					{
 						.pos = vertex[coord3],
 						.uv = {poly.gt4->u3, poly.gt4->v3},
-						.color = poly.gt4->colour[3]
+						.color = poly.gt4->color[3]
 					},
 					{
 						.pos = vertex[coord1],
 						.uv = {poly.gt4->u1, poly.gt4->v1},
-						.color = poly.gt4->colour[1]
+						.color = poly.gt4->color[1]
 					},
 				}
 			}, poly.gt4->texture);
@@ -552,17 +556,17 @@ void object_draw(Object *object, mat4_t *mat) {
 					{
 						.pos = vertex[coord2],
 						.uv = {poly.ft3->u2, poly.ft3->v2},
-						.color = poly.ft3->colour
+						.color = poly.ft3->color
 					},
 					{
 						.pos = vertex[coord1],
 						.uv = {poly.ft3->u1, poly.ft3->v1},
-						.color = poly.ft3->colour
+						.color = poly.ft3->color
 					},
 					{
 						.pos = vertex[coord0],
 						.uv = {poly.ft3->u0, poly.ft3->v0},
-						.color = poly.ft3->colour
+						.color = poly.ft3->color
 					},
 				}
 			}, poly.ft3->texture);
@@ -581,17 +585,17 @@ void object_draw(Object *object, mat4_t *mat) {
 					{
 						.pos = vertex[coord2],
 						.uv = {poly.ft4->u2, poly.ft4->v2},
-						.color = poly.ft4->colour
+						.color = poly.ft4->color
 					},
 					{
 						.pos = vertex[coord1],
 						.uv = {poly.ft4->u1, poly.ft4->v1},
-						.color = poly.ft4->colour
+						.color = poly.ft4->color
 					},
 					{
 						.pos = vertex[coord0],
 						.uv = {poly.ft4->u0, poly.ft4->v0},
-						.color = poly.ft4->colour
+						.color = poly.ft4->color
 					},
 				}
 			}, poly.ft4->texture);
@@ -600,17 +604,17 @@ void object_draw(Object *object, mat4_t *mat) {
 					{
 						.pos = vertex[coord2],
 						.uv = {poly.ft4->u2, poly.ft4->v2},
-						.color = poly.ft4->colour
+						.color = poly.ft4->color
 					},
 					{
 						.pos = vertex[coord3],
 						.uv = {poly.ft4->u3, poly.ft4->v3},
-						.color = poly.ft4->colour
+						.color = poly.ft4->color
 					},
 					{
 						.pos = vertex[coord1],
 						.uv = {poly.ft4->u1, poly.ft4->v1},
-						.color = poly.ft4->colour
+						.color = poly.ft4->color
 					},
 				}
 			}, poly.ft4->texture);
@@ -627,15 +631,15 @@ void object_draw(Object *object, mat4_t *mat) {
 				.vertices = {
 					{
 						.pos = vertex[coord2],
-						.color = poly.g3->colour[2]
+						.color = poly.g3->color[2]
 					},
 					{
 						.pos = vertex[coord1],
-						.color = poly.g3->colour[1]
+						.color = poly.g3->color[1]
 					},
 					{
 						.pos = vertex[coord0],
-						.color = poly.g3->colour[0]
+						.color = poly.g3->color[0]
 					},
 				}
 			}, RENDER_NO_TEXTURE);
@@ -653,15 +657,15 @@ void object_draw(Object *object, mat4_t *mat) {
 				.vertices = {
 					{
 						.pos = vertex[coord2],
-						.color = poly.g4->colour[2]
+						.color = poly.g4->color[2]
 					},
 					{
 						.pos = vertex[coord1],
-						.color = poly.g4->colour[1]
+						.color = poly.g4->color[1]
 					},
 					{
 						.pos = vertex[coord0],
-						.color = poly.g4->colour[0]
+						.color = poly.g4->color[0]
 					},
 				}
 			}, RENDER_NO_TEXTURE);
@@ -669,15 +673,15 @@ void object_draw(Object *object, mat4_t *mat) {
 				.vertices = {
 					{
 						.pos = vertex[coord2],
-						.color = poly.g4->colour[2]
+						.color = poly.g4->color[2]
 					},
 					{
 						.pos = vertex[coord3],
-						.color = poly.g4->colour[3]
+						.color = poly.g4->color[3]
 					},
 					{
 						.pos = vertex[coord1],
-						.color = poly.g4->colour[1]
+						.color = poly.g4->color[1]
 					},
 				}
 			}, RENDER_NO_TEXTURE);
@@ -694,15 +698,15 @@ void object_draw(Object *object, mat4_t *mat) {
 				.vertices = {
 					{
 						.pos = vertex[coord2],
-						.color = poly.f3->colour
+						.color = poly.f3->color
 					},
 					{
 						.pos = vertex[coord1],
-						.color = poly.f3->colour
+						.color = poly.f3->color
 					},
 					{
 						.pos = vertex[coord0],
-						.color = poly.f3->colour
+						.color = poly.f3->color
 					},
 				}
 			}, RENDER_NO_TEXTURE);
@@ -720,15 +724,15 @@ void object_draw(Object *object, mat4_t *mat) {
 				.vertices = {
 					{
 						.pos = vertex[coord2],
-						.color = poly.f4->colour
+						.color = poly.f4->color
 					},
 					{
 						.pos = vertex[coord1],
-						.color = poly.f4->colour
+						.color = poly.f4->color
 					},
 					{
 						.pos = vertex[coord0],
-						.color = poly.f4->colour
+						.color = poly.f4->color
 					},
 				}
 			}, RENDER_NO_TEXTURE);
@@ -736,15 +740,15 @@ void object_draw(Object *object, mat4_t *mat) {
 				.vertices = {
 					{
 						.pos = vertex[coord2],
-						.color = poly.f4->colour
+						.color = poly.f4->color
 					},
 					{
 						.pos = vertex[coord3],
-						.color = poly.f4->colour
+						.color = poly.f4->color
 					},
 					{
 						.pos = vertex[coord1],
-						.color = poly.f4->colour
+						.color = poly.f4->color
 					},
 				}
 			}, RENDER_NO_TEXTURE);
@@ -763,7 +767,7 @@ void object_draw(Object *object, mat4_t *mat) {
 					vertex[coord0].z
 				),
 				vec2i(poly.spr->width, poly.spr->height),
-				poly.spr->colour,
+				poly.spr->color,
 				poly.spr->texture
 			);
 

@@ -14,21 +14,18 @@
 // PSVita
 #elif defined(__vita__)
 	#include <vitaGL.h>
-// WINDOWS
-#else
+// Windows
+#elif defined(WIN32)
 	#include <windows.h>
 
 	#define GL3_PROTOTYPES 1
-	#include <glew.h>
-	#pragma comment(lib, "glew32.lib")
-
-	#include <gl/GL.h>
-	#pragma comment(lib, "opengl32.lib")
+	#include <GL/glew.h>
+	#include <GL/gl.h>
 #endif
 
 
 
-#include "libs/stb_image_write.h"
+#include <stb_image_write.h>
 
 #include "system.h"
 #include "render.h"
@@ -138,7 +135,7 @@ static const char * const SHADER_GAME_VS = SHADER_SOURCE(
 	uniform vec2 fade;
 	uniform float time;
 	
-	void main() {
+	void main(void) {
 		gl_Position = projection * view * model * vec4(pos, 1.0);
 		gl_Position.xy += screen.xy * gl_Position.w;
 		v_color = color;
@@ -155,7 +152,7 @@ static const char * const SHADER_GAME_FS = SHADER_SOURCE(
 	varying vec2 v_uv;
 	uniform sampler2D texture;
 
-	void main() {
+	void main(void) {
 		vec4 tex_color = texture2D(texture, v_uv);
 		vec4 color = tex_color * v_color;
 		if (color.a == 0.0) {
@@ -185,7 +182,7 @@ typedef struct {
 	} attribute;
 } prg_game_t;
 
-prg_game_t *shader_game_init() {
+prg_game_t *shader_game_init(void) {
 	prg_game_t *s = mem_bump(sizeof(prg_game_t));
 	
 	s->program = create_program(SHADER_GAME_VS, SHADER_GAME_FS);
@@ -229,7 +226,7 @@ static const char * const SHADER_POST_VS = SHADER_SOURCE(
 	uniform vec2 screen_size;
 	uniform float time;
 	
-	void main() {
+	void main(void) {
 		gl_Position = projection * vec4(pos, 1.0);
 		v_uv = uv;
 	}
@@ -241,7 +238,7 @@ static const char * const SHADER_POST_FS_DEFAULT = SHADER_SOURCE(
 	uniform sampler2D texture;
 	uniform vec2 screen_size;
 
-	void main() {
+	void main(void) {
 		gl_FragColor = texture2D(texture, v_uv);
 	}
 );
@@ -338,14 +335,14 @@ void shader_post_general_init(prg_post_t *s) {
 	bind_va_f(s->attribute.uv, vertex_t, uv, 0);
 }
 
-prg_post_t *shader_post_default_init() {
+prg_post_t *shader_post_default_init(void) {
 	prg_post_t *s = mem_bump(sizeof(prg_post_t));
 	s->program = create_program(SHADER_POST_VS, SHADER_POST_FS_DEFAULT);	
 	shader_post_general_init(s);
 	return s;
 }
 
-prg_post_t *shader_post_crt_init() {
+prg_post_t *shader_post_crt_init(void) {
 	prg_post_t *s = mem_bump(sizeof(prg_post_t));
 	s->program = create_program(SHADER_POST_VS, SHADER_POST_FS_CRT);	
 	shader_post_general_init(s);
@@ -389,7 +386,7 @@ prg_post_t *prg_post;
 prg_post_t *prg_post_effects[NUM_RENDER_POST_EFFCTS] = {};
 
 
-static void render_flush();
+static void render_flush(void);
 
 
 // static void gl_message_callback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar *message, const void *userParam) {
@@ -470,7 +467,7 @@ void render_init(vec2i_t screen_size) {
 	render_set_screen_size(screen_size);
 }
 
-void render_cleanup() {
+void render_cleanup(void) {
 	// TODO
 }
 
@@ -578,11 +575,11 @@ void render_set_post_effect(render_post_effect_t post) {
 	prg_post = prg_post_effects[post];
 }
 
-vec2i_t render_size() {
+vec2i_t render_size(void) {
 	return backbuffer_size;
 }
 
-void render_frame_prepare() {
+void render_frame_prepare(void) {
 	use_program(prg_game);
 	glBindFramebuffer(GL_FRAMEBUFFER, backbuffer);
 	glViewport(0, 0, backbuffer_size.x, backbuffer_size.y);
@@ -597,7 +594,7 @@ void render_frame_prepare() {
 	glEnable(GL_DEPTH_TEST); 
 }
 
-void render_frame_end() {
+void render_frame_end(void) {
 	render_flush();
 
 	use_program(prg_post);
@@ -631,7 +628,7 @@ void render_frame_end() {
 	render_flush();
 }
 
-void render_flush() {
+void render_flush(void) {
 	if (tris_len == 0) {
 		return;
 	}
@@ -668,7 +665,7 @@ void render_set_view(vec3_t pos, vec3_t angles) {
 	glUniform2f(prg_game->uniform.fade, RENDER_FADEOUT_NEAR, RENDER_FADEOUT_FAR);
 }
 
-void render_set_view_2d() {
+void render_set_view_2d(void) {
 	render_flush();
 	render_set_depth_test(false);
 	render_set_depth_write(false);
@@ -969,7 +966,7 @@ void render_texture_replace_pixels(int16_t texture_index, rgba_t *pixels) {
 	glTexSubImage2D(GL_TEXTURE_2D, 0, t->offset.x, t->offset.y, t->size.x, t->size.y, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
 }
 
-uint16_t render_textures_len() {
+uint16_t render_textures_len(void) {
 	return textures_len;
 }
 

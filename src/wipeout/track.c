@@ -2,6 +2,7 @@
 #include "../utils.h"
 #include "../render.h"
 #include "../system.h"
+#include "../platform.h"
 
 #include "object.h"
 #include "track.h"
@@ -80,14 +81,12 @@ void track_load(const char *base_path) {
 			}
 			face++;
 		}
-		
-		error_if(g.track.pickups_len > TRACK_PICKUPS_MAX-1, "Track %s exceeds TRACK_PICKUPS_MAX", base_path);
 	}
 }
 
 ttf_t *track_load_tile_format(char *ttf_name) {
 	uint32_t ttf_size;
-	uint8_t *ttf_bytes = file_load(ttf_name, &ttf_size);
+	uint8_t *ttf_bytes = platform_load_asset(ttf_name, &ttf_size);
 
 	uint32_t p = 0;
 	uint32_t num_tiles = ttf_size / 42;
@@ -123,7 +122,7 @@ bool track_collect_pickups(track_face_t *face) {
 
 vec3_t *track_load_vertices(char *file_name) {
 	uint32_t size;
-	uint8_t *bytes = file_load(file_name, &size);
+	uint8_t *bytes = platform_load_asset(file_name, &size);
 
 	g.track.vertex_count = size / 16; // VECTOR_SIZE
 	vec3_t *vertices = mem_temp_alloc(sizeof(vec3_t) * g.track.vertex_count);
@@ -147,7 +146,7 @@ static const vec2_t track_uv[2][4] = {
 
 void track_load_faces(char *file_name, vec3_t *vertices) {
 	uint32_t size;
-	uint8_t *bytes = file_load(file_name, &size);
+	uint8_t *bytes = platform_load_asset(file_name, &size);
 
 	g.track.face_count = size / 20; // TRACK_FACE_DATA_SIZE
 	g.track.faces = mem_bump(sizeof(track_face_t) * g.track.face_count);
@@ -169,7 +168,7 @@ void track_load_faces(char *file_name, vec3_t *vertices) {
 		tf->texture = get_i8(bytes, &p);
 		tf->flags = get_i8(bytes, &p);
 
-		rgba_t color = {.as_uint32 = get_i32_le(bytes, &p) | 0xff000000};
+		rgba_t color = rgba_from_u32(get_u32(bytes, &p));
 		const vec2_t *uv = track_uv[flags_is(tf->flags, FACE_FLIP_TEXTURE) ? 1 : 0];
 
 		tf->tris[0] = (tris_t){
@@ -196,7 +195,7 @@ void track_load_faces(char *file_name, vec3_t *vertices) {
 
 void track_load_sections(char *file_name) {
 	uint32_t size;
-	uint8_t *bytes = file_load(file_name, &size);
+	uint8_t *bytes = platform_load_asset(file_name, &size);
 
 	g.track.section_count = size / 156; // SECTION_DATA_SIZE
 	g.track.sections = mem_bump(sizeof(section_t) * g.track.section_count);
@@ -227,12 +226,8 @@ void track_load_sections(char *file_name) {
 		p += 5 * 3 * 4; // view section pointers
 		p += 5 * 3 * 2; // view section counts
 
-		for (int j = 0; j < 4; j++) {
-			ts->high[j] = get_i16(bytes, &p);
-		}
-		for (int j = 0; j < 4; j++) {
-			ts->med[j] = get_i16(bytes, &p);
-		}
+		p += 4 * 2; // high list
+		p += 4 * 2; // med list
 
 		ts->face_start = get_i16(bytes, &p);
 		ts->face_count = get_i16(bytes, &p);
@@ -255,7 +250,6 @@ void track_draw_section(section_t *section) {
 	track_face_t *face = g.track.faces + section->face_start;
 	int16_t face_count = section->face_count;
 	
-
 	for (uint32_t j = 0; j < face_count; j++) {
 		uint16_t tex_index = texture_from_list(g.track.textures, face->texture);
 		render_push_tris(face->tris[0], tex_index);
@@ -265,37 +259,30 @@ void track_draw_section(section_t *section) {
 }
 
 void track_draw(camera_t *camera) {	
-	render_set_model_mat(&mat4_identity());	
-	
-	float max_dist_sq = RENDER_FADEOUT_FAR * RENDER_FADEOUT_FAR;
-	vec3_t cam_pos = camera->position;
+	render_set_model_mat(&mat4_identity());
 
-	section_t *s = g.track.sections;
-	section_t *j = NULL;
-	do {
-		vec3_t d = vec3_sub(cam_pos, s->center);
-		float dist_sq = d.x * d.x + d.y * d.y + d.z * d.z;
-		if (dist_sq <  max_dist_sq) {
+	// Calculate the camera forward vector, so we can cull everything that's
+	// behind. Ideally we'd want to do a full frustum culling here. FIXME.
+	vec3_t cam_pos = camera->position;
+	vec3_t cam_dir = camera_forward(camera);
+	
+	int drawn = 0;
+	int skipped = 0;
+	for(int32_t i = 0; i < g.track.section_count; i++) {
+		section_t *s = &g.track.sections[i];
+		vec3_t diff = vec3_sub(cam_pos, s->center);
+		float cam_dot = vec3_dot(diff, cam_dir);
+		float dist_sq = vec3_dot(diff, diff);
+		if (
+			cam_dot < 2048 && // FIXME: should use the bounding radius of the section
+			dist_sq < (RENDER_FADEOUT_FAR * RENDER_FADEOUT_FAR)
+		) {
 			track_draw_section(s);
 		}
-
-		if (s->junction) { // start junction
-			j = s->junction;
-			do {
-				vec3_t d = vec3_sub(cam_pos, j->center);
-				float dist_sq = d.x * d.x + d.y * d.y + d.z * d.z;
-				if (dist_sq <  max_dist_sq) {
-					track_draw_section(j);
-				}
-				j = j->next;
-			} while (!j->junction); // end junction
-		}
-		s = s->next;
-	} while (s != g.track.sections);
-	
+	}
 }
 
-void track_cycle_pickups() {
+void track_cycle_pickups(void) {
 	float pickup_cycle_time = 1.5 * system_cycle_time();
 
 	for (int i = 0; i < g.track.pickups_len; i++) {
