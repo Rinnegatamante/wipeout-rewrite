@@ -579,6 +579,10 @@ vec2i_t render_size(void) {
 	return backbuffer_size;
 }
 
+#ifdef __vita__
+extern int has_high_res_video;
+#endif
+
 void render_frame_prepare(void) {
 	use_program(prg_game);
 	glBindFramebuffer(GL_FRAMEBUFFER, backbuffer);
@@ -596,7 +600,10 @@ void render_frame_prepare(void) {
 
 void render_frame_end(void) {
 	render_flush();
-
+#ifdef __vita__
+	if (has_high_res_video)
+		return;
+#endif
 	use_program(prg_post);
 
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);

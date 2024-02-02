@@ -9,6 +9,12 @@
 #include "image.h"
 #include "game.h"
 
+#ifdef __vita__
+#include <vitasdk.h>
+#include "../vita_mp4.h"
+int has_high_res_video = 0;
+#endif
+
 void free_dummmy(void *p) {}
 void *realloc_dummmy(void *p, size_t sz) {
 	die("pl_mpeg needed to realloc. Not implemented. Maybe increase PLM_BUFFER_DEFAULT_SIZE");
@@ -36,6 +42,14 @@ static void audio_mix(float *samples, uint32_t len);
 static void intro_end(void);
 
 void intro_init(void) {
+#ifdef __vita__
+	SceIoStat stat;
+	if (sceIoGetstat("ux0:data/wipeout/wipeout/intro.mp4", &stat) >= 0) {
+		video_open("ux0:data/wipeout/wipeout/intro.mp4", 0);
+		has_high_res_video = 1;
+		return;
+	}
+#endif
 	plm = plm_create_with_filename("wipeout/intro.mpeg");
 	if (!plm) {
 		intro_end();
@@ -63,11 +77,24 @@ void intro_init(void) {
 }
 
 static void intro_end(void) {
+#ifdef __vita__
+	video_close();
+	has_high_res_video = 0;
+#endif
 	sfx_set_external_mix_cb(NULL);
 	game_set_scene(GAME_SCENE_TITLE);
 }
 
 void intro_update(void) {
+#ifdef __vita__
+	if (has_high_res_video) {
+		draw_video_frame();
+		if (player_state == PLAYER_INACTIVE || input_pressed(A_MENU_SELECT) || input_pressed(A_MENU_START)) {
+			intro_end();
+		}
+		return;
+	}
+#endif
 	if (!plm) {
 		return;
 	}

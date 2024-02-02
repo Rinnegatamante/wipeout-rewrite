@@ -383,11 +383,16 @@ uint32_t platform_store_userdata(const char *name, void *bytes, int32_t len) {
 #ifdef __vita__
 int wipeout_main (unsigned int argc, void* argv);
 int main(int argc, char *argv[]) {
-
+	sceSysmoduleLoadModule(SCE_SYSMODULE_RAZOR_CAPTURE);
 	scePowerSetArmClockFrequency(444);
 	scePowerSetBusClockFrequency(222);
 	scePowerSetGpuClockFrequency(222);
 	scePowerSetGpuXbarClockFrequency(166);
+
+	vglSetSemanticBindingMode(VGL_MODE_POSTPONED);
+	vglInitWithCustomThreshold(0, 960, 544, 16 * 1024 * 1024, 32 * 1024 * 1024, 0, 26 * 1024 * 1024, SCE_GXM_MULTISAMPLE_4X);
+	sceSysmoduleLoadModule(SCE_SYSMODULE_AVPLAYER);
+	SDL_setenv("VITA_USE_GLSL_TRANSLATOR", "1", 1);
 	
 	// We need a bigger stack to run Wipeout, so we create a new thread with a proper stack size
 	SceUID main_thread = sceKernelCreateThread("Wipeout", wipeout_main, 0x40, 0x200000, 0, 0, NULL);
@@ -395,10 +400,6 @@ int main(int argc, char *argv[]) {
 		sceKernelStartThread(main_thread, 0, NULL);
 		sceKernelWaitThreadEnd(main_thread, NULL, NULL);
 	}
-	
-	vglSetSemanticBindingMode(VGL_MODE_POSTPONED);
-	vglInitExtended(0, 960, 544, 16 * 1024 * 1024, SCE_GXM_MULTISAMPLE_4X);
-	SDL_setenv("VITA_USE_GLSL_TRANSLATOR", "1", 1);
 }
 int wipeout_main (unsigned int argc, void* argv) {
 #else
