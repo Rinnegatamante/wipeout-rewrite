@@ -383,7 +383,6 @@ uint32_t platform_store_userdata(const char *name, void *bytes, int32_t len) {
 #ifdef __vita__
 int wipeout_main (unsigned int argc, void* argv);
 int main(int argc, char *argv[]) {
-	sceSysmoduleLoadModule(SCE_SYSMODULE_RAZOR_CAPTURE);
 	scePowerSetArmClockFrequency(444);
 	scePowerSetBusClockFrequency(222);
 	scePowerSetGpuClockFrequency(222);
