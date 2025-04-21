@@ -3,6 +3,7 @@
 #include "../utils.h"
 #include "../types.h"
 #include "../mem.h"
+#include "../platform.h"
 
 #include "intro.h"
 #include "ui.h"
@@ -50,7 +51,14 @@ void intro_init(void) {
 		return;
 	}
 #endif
-	plm = plm_create_with_filename("wipeout/intro.mpeg");
+
+	FILE *file = platform_open_asset("wipeout/intro.mpeg", "rb");
+	if (!file) {
+		intro_end();
+		return;
+	}
+
+	plm = plm_create_with_file(file, true);
 	if (!plm) {
 		intro_end();
 		return;

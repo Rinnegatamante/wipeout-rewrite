@@ -397,6 +397,7 @@ save_t save = {
 	.sfx_volume = 0.6,
 	.music_volume = 0.5,
 	.internal_roll = 0.6,
+	.screen_shake = 0.5,
 	.ui_scale = 0,
 	.show_fps = false,
 	.fullscreen = false,
@@ -543,6 +544,16 @@ void game_init(void) {
 	input_bind(INPUT_LAYER_SYSTEM, INPUT_KEY_DOWN, A_MENU_DOWN);
 	input_bind(INPUT_LAYER_SYSTEM, INPUT_KEY_LEFT, A_MENU_LEFT);
 	input_bind(INPUT_LAYER_SYSTEM, INPUT_KEY_RIGHT, A_MENU_RIGHT);
+
+	input_bind(INPUT_LAYER_SYSTEM, INPUT_KEY_W, A_MENU_UP);
+	input_bind(INPUT_LAYER_SYSTEM, INPUT_KEY_S, A_MENU_DOWN);
+	input_bind(INPUT_LAYER_SYSTEM, INPUT_KEY_A, A_MENU_LEFT);
+	input_bind(INPUT_LAYER_SYSTEM, INPUT_KEY_D, A_MENU_RIGHT);
+
+	input_bind(INPUT_LAYER_SYSTEM, INPUT_KEY_K, A_MENU_UP);
+	input_bind(INPUT_LAYER_SYSTEM, INPUT_KEY_J, A_MENU_DOWN);
+	input_bind(INPUT_LAYER_SYSTEM, INPUT_KEY_H, A_MENU_LEFT);
+	input_bind(INPUT_LAYER_SYSTEM, INPUT_KEY_L, A_MENU_RIGHT);
 
 	input_bind(INPUT_LAYER_SYSTEM, INPUT_KEY_BACKSPACE, A_MENU_BACK);
 	input_bind(INPUT_LAYER_SYSTEM, INPUT_KEY_C, A_MENU_BACK);

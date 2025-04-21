@@ -37,12 +37,13 @@ void camera_update(camera_t *camera, ship_t *ship, droid_t *droid) {
 	camera->last_position = camera->position;
 	(camera->update_func)(camera, ship, droid);
 	camera->real_velocity = vec3_mulf(vec3_sub(camera->position, camera->last_position), 1.0/system_tick());
+	camera_update_shake(camera);
 }
 
 void camera_update_race_external(camera_t *camera, ship_t *ship, droid_t *droid) {
 	vec3_t pos = vec3_sub(ship->position, vec3_mulf(ship->dir_forward, 1024));
 	pos.y -= 200;
-	camera->section = track_nearest_section(pos, camera->section, NULL);
+	camera->section = track_nearest_section(pos, vec3(1,1,1), camera->section, NULL);
 	section_t *next = camera->section->next;
 
 	vec3_t target = vec3_project_to_ray(pos, next->center, camera->section->center);
@@ -78,7 +79,7 @@ void camera_update_race_intro(camera_t *camera, ship_t *ship, droid_t *droid) {
 		camera->has_initial_section = true;
 	}
 	else {
-		camera->section = track_nearest_section(pos, camera->section, NULL);
+		camera->section = track_nearest_section(pos, vec3(1,1,1), camera->section, NULL);
 	}
 
 	camera->position = pos;
@@ -172,4 +173,20 @@ void camera_update_attract_random(camera_t *camera, ship_t *ship, droid_t *droid
 	}
 
 	(camera->update_func)(camera, ship, droid);
+}
+
+void camera_set_shake(camera_t *camera, float duration) {
+	camera->shake_timer = duration;
+}
+
+void camera_update_shake(camera_t *camera) {
+	if (camera->shake_timer > 0.0f) {
+		float s = 0.25 * save.screen_shake * camera->shake_timer;
+		camera->shake.x = rand_float(-s, s);
+		camera->shake.y = rand_float(-s, s);
+		camera->shake_timer -= system_tick();
+	}
+	else {
+		camera->shake.x = camera->shake.y = camera->shake_timer = 0.0f;
+	}
 }

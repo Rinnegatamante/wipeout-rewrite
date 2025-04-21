@@ -212,6 +212,7 @@ void ship_init(ship_t *self, section_t *section, int pilot, int inv_start_rank) 
 	self->ebolt_timer = 0;
 	self->revcon_timer = 0;
 	self->special_timer = 0;
+	self->weapon_target = NULL;
 	self->mat = mat4_identity();
 
 	self->update_timer = 0;
@@ -467,8 +468,15 @@ void ship_update(ship_t *self) {
 	self->dir_up.z = (sy * sz) + (cy * sx * cz);
 
 	self->prev_section = self->section;
+
+	// To find the nearest section to the ship, the original source de-emphasizes
+	// the .y component when calculating the distance to each section by a 
+	// >> 2 shift. I.e. it tries to find the section that is more closely to the
+	// horizontal x,z plane (directly underneath the ship), instead of finding 
+	// the section with the "real" closest distance. Hence the bias of 
+	// vec3(1, 0.25, 1) here.
 	float distance;
-	self->section = track_nearest_section(self->position, self->section, &distance);
+	self->section = track_nearest_section(self->position, vec3(1, 0.25, 1), self->section, &distance);
 	if (distance > 3700) {
 		flags_add(self->flags, SHIP_FLYING);
 	}
@@ -623,7 +631,7 @@ static bool vec3_is_on_face(vec3_t pos, track_face_t *face, float alpha) {
 		vec3_angle(vec3, vec1) +
 		vec3_angle(vec1, vec0);
 
-	return (angle > M_PI * 2 - 0.01);
+	return (angle > (0.91552734375 * M_PI * 2));
 }
 
 void ship_resolve_wing_collision(ship_t *self, track_face_t *face, float direction) {
@@ -632,9 +640,9 @@ void ship_resolve_wing_collision(ship_t *self, track_face_t *face, float directi
 	self->velocity = vec3_reflect(self->velocity, face->normal, 2);
 	self->position = vec3_sub(self->position, vec3_mulf(self->velocity, 0.015625)); // system_tick?
 	self->velocity = vec3_sub(self->velocity, vec3_mulf(self->velocity, 0.5));
-	self->velocity = vec3_add(self->velocity, vec3_mulf(face->normal, 4096)); // div by 4096?
+	self->velocity = vec3_add(self->velocity, vec3_mulf(face->normal, 4096.0)); // div by 4096?
 
-	float magnitude = (fabsf(angle) * self->speed) * M_PI / (4096 * 16.0); // (6 velocity shift, 12 angle shift?)
+	float magnitude = (fabsf(angle) * self->speed) * 2 * M_PI / 4096.0; // (6 velocity shift, 12 angle shift?)
 
 	vec3_t wing_pos;
 	if (direction > 0) {
@@ -661,7 +669,7 @@ void ship_resolve_nose_collision(ship_t *self, track_face_t *face, float directi
 	self->velocity = vec3_sub(self->velocity, vec3_mulf(self->velocity, 0.5));
 	self->velocity = vec3_add(self->velocity, vec3_mulf(face->normal, 4096)); // div by 4096?
 
-	float magnitude = ((self->speed * 0.0625) + 400) * M_PI / (4096.0 * 64.0);
+	float magnitude = ((self->speed * 0.0625) + 400) * 2 * M_PI / 4096.0;
 	if (direction > 0) {
 		self->angular_velocity.y += magnitude;
 	}
@@ -965,7 +973,7 @@ bool ship_intersects_ship(ship_t *self, ship_t *other) {
 
 void ship_collide_with_ship(ship_t *self, ship_t *other) {
 	float distance = vec3_len(vec3_sub(self->position, other->position));
-	
+
 	// Do a quick distance check; if ships are far apart, remove the collision flag
 	// and early out.
 	if (distance > 960) {
@@ -989,8 +997,8 @@ void ship_collide_with_ship(ship_t *self, ship_t *other) {
 		self->mass + other->mass
 	);
 
-	vec3_t ship_react = vec3_mulf(vec3_sub(vc, self->velocity), 0.25);
-	vec3_t other_react = vec3_mulf(vec3_sub(vc, other->velocity), 0.25);
+	vec3_t ship_react = vec3_mulf(vec3_sub(vc, self->velocity), 0.5); // >> 1
+	vec3_t other_react = vec3_mulf(vec3_sub(vc, other->velocity), 0.5); // >> 1
 	self->position = vec3_sub(self->position, vec3_mulf(self->velocity, 0.015625)); // >> 6
 	other->position = vec3_sub(other->position, vec3_mulf(other->velocity, 0.015625)); // >> 6
 
@@ -999,10 +1007,10 @@ void ship_collide_with_ship(ship_t *self, ship_t *other) {
 
 	vec3_t res = vec3_sub(self->position, other->position);
 
-	self->velocity = vec3_add(self->velocity, vec3_mulf(res, 2));  // << 2
+	self->velocity = vec3_add(self->velocity, vec3_mulf(res, 4));  // << 2
 	self->position = vec3_add(self->position, vec3_mulf(self->velocity, 0.015625)); // >> 6
 
-	other->velocity = vec3_sub(other->velocity, vec3_mulf(res, 2)); // << 2
+	other->velocity = vec3_sub(other->velocity, vec3_mulf(res, 4)); // << 2
 	other->position = vec3_add(other->position, vec3_mulf(other->velocity, 0.015625)); // >> 6
 
 	if (
