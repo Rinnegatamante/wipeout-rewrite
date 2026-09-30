@@ -1,6 +1,7 @@
 #include <vitasdk.h>
 #include <vitaGL.h>
 #include <stdio.h>
+#include <string.h>
 #include <malloc.h>
 #include "vita_mp4.h"
 
@@ -263,7 +264,7 @@ int draw_video_frame() {
 	glMatrixMode(GL_MODELVIEW);
 	glLoadIdentity();
 	glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);
-	vglDrawObjects(GL_TRIANGLE_STRIP, 4, GL_TRUE);
+	vglDrawObjects(GL_TRIANGLE_STRIP, 4);
 	glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
 	glDisableClientState(GL_COLOR_ARRAY);
 	return 1;

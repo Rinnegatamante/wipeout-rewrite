@@ -7,6 +7,7 @@
 #include "mem.h"
 
 #ifdef __vita__
+#include <sys/stat.h>
 #include <vitasdk.h>
 #include <vitaGL.h>
 int _newlib_heap_size_user = 256 * 1024 * 1024;
